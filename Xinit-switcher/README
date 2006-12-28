@@ -1,0 +1,15 @@
+Xinit-switcher
+
+Choose between multiple .Xinitrc files at startup.
+
+==============
+
+Installation instructions :
+
+  Run install.sh as root.
+  Then read the documentation by typing 'man Xinit-switcher'.
+
+==============
+
+This free software has been written by Olivier Duclos. Do not hesitate to contact me for any comments, request or patch ;)
+  olivierduclos@oliwer.net
