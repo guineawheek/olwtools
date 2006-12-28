@@ -1,0 +1,213 @@
+#!/usr/bin/env perl
+
+# Author : Olivier Duclos <oliwer@hedinux.org>
+# Usage  : radio-tray <path/to/playlists_dir> <player>
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version. 
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 
+# USA
+
+use strict;
+use warnings;
+use Gtk2 '-init';
+use Gtk2::TrayIcon;
+
+our $VERSION = "0.2"; # 2006.12.27
+our $PLAYER = "audacious";
+our $PATH = "$ENV{HOME}/Desktop";
+
+
+
+#  M A I N  #
+
+my $path = &getPath;
+my $player = &getPlayer;
+my @fileList = &getFiles;
+my @nameList = &removeExtensions(@fileList);
+
+# The icon
+my @image = (
+'24 24 8 1',
+'` c #080708',
+'. c #929392',
+'# c #4f4f4f',
+'a c #d7d6d7',
+'b c #302f30',
+'c c #6f6f6f',
+'d c #b2b3b2',
+'e c #f5f6f5',
+'``````````````````bb````',
+'````.#````````````cd````',
+'```cec````````````cec```',
+'``bad``b````````b``dab``',
+'``.eb`..````````..`be.``',
+'``ad`#ed````````.e#`da``',
+'`#ec`.ab##````b#bad`ceb`',
+'`ca#`adba.````cabde`bec`',
+'`.abbecbe#`##`#e#ceb`a.`',
+'`.abbe##e`baab`e##e#ba.`',
+'`.abbec#eb`.d`be#cebba.`',
+'`cab`edba.`b#`cab.e`bac`',
+'`#ec`dabc.#aac##baa`#e#`',
+'`bad`#e.`b#ee.``.ec`dab`',
+'``deb`da``.eea``dd`bad``',
+'``#e.`b#``deee``bb`.e#``',
+'``b.ec````eeeeb```ce.b``',
+'```bdc```beeee#```cab```',
+'````bb```ceeee.```bb````',
+'`````````.eeeed`````````',
+'`````````aeeeeeb````````',
+'`````````aeeeeeb````````',
+'`````````bbbb`b`````````',
+'````````````````````````');
+my $pixbuf = Gtk2::Gdk::Pixbuf->new_from_xpm_data(@image);
+my $icon = Gtk2::Image->new_from_pixbuf($pixbuf);
+
+# Tray icon
+my $trayicon = Gtk2::TrayIcon->new("Radios");
+my $eventbox = Gtk2::EventBox->new;
+$eventbox->add($icon);
+$trayicon->add($eventbox);
+$eventbox->signal_connect( 'button_release_event', \&tray_handler );
+$trayicon->show_all;
+
+Gtk2->main;
+
+
+
+
+
+
+#  S U B S  #
+
+sub getPath {
+	if (!defined($ARGV[0])) {
+		print "\nUsing $PATH as default directory.\n";
+		return $PATH;
+	}
+	else {
+		
+		if (-d $ARGV[0]) {;
+			return $ARGV[0];
+		}
+		else {
+			if ($ARGV[0] eq "-h" or $ARGV[0] eq "--help") {
+				print "radio-tray $VERSION\n";
+				print "Usage : radio-tray <path/to/playlists_dir> <player>\n";
+				exit 0;
+			}
+			else {
+				die "error: $ARGV[0] does not exists.\n";
+			}
+		}
+	}
+}
+
+sub getPlayer {
+	if (!defined($ARGV[1])) {
+		print "Using $PLAYER as default player.\n";
+		return $PLAYER;
+	}
+	else {
+		return $ARGV[1];
+	}
+}
+
+sub getFiles {
+	opendir(DIR, $path) || die "error: $path cannot be read.\n";
+	my @list = grep !/^\.\.?$/, readdir(DIR);
+	closedir(DIR);
+	return @list;
+}
+
+sub removeExtensions {
+	my @list = @_;
+	my $file;
+	foreach $file (@list) {
+		$file =~ s/^(.*)\..../$1/;
+	}
+	return @list;
+}
+
+sub tray_handler
+{
+	my ($check, $event) = @_;
+  
+	if (1 eq $event->button) {
+		my $main_menu = Gtk2::ItemFactory->new("Gtk2::Menu", '<main>', undef);
+		my $main_popup = $main_menu->get_widget('<main>');
+		
+		my $size = scalar(@fileList);
+		for (my $i = 0; $i < $size; $i++) {
+			my @temp = [ "/$nameList[$i]", '<Item>', "play" ];
+			$main_menu->create_item(@temp, $fileList[$i]);
+		}
+		
+		$main_popup->show_all;
+		$main_popup->popup(undef, undef, undef, undef, 0, 0);
+		
+		# block event propagation
+		return 1;
+	}
+	else {
+		if (3 eq $event->button) {
+			my $item_factory = Gtk2::ItemFactory->new("Gtk2::Menu", '<second>', undef);
+			my $popup_menu = $item_factory->get_widget('<second>');
+
+			my @menu_items = (
+				{ path => '/About',       item_type => '<Item>', callback => \&about_dialog},
+				{ path => '/Reconfigure', item_type => '<Item>', callback => \&reconfigure},
+				{ path => '/Exit',        item_type => '<Item>', callback => \&out}
+				);
+
+			$item_factory->create_items(undef, @menu_items);
+			$popup_menu->show_all;
+			$popup_menu->popup(undef, undef, undef, undef, 0, 0);
+
+			# block event propagation
+			return 1;
+		}
+	}
+}
+
+sub play () {
+	my $file = shift @_;
+	if (-e "$path/$file") {
+		system "$player $path/$file";
+	}
+	else {
+		my $popup = Gtk2::MessageDialog->new (undef, 'modal', 'info', 'ok', "Sorry, $file does not exist.");
+		$popup->run;
+		$popup->destroy;
+	}
+}
+
+sub about_dialog {
+	my $about = Gtk2::AboutDialog->new;
+	$about->set_name("radio-tray");
+	$about->set_version($VERSION);
+	$about->set_copyright("Copyright (c) Olivier Duclos 2006");
+	$about->set_comments("The quickest way to switch between web radios.");
+	$about->set_website("oliwer\@hedinux.org");
+	$about->set_logo($pixbuf);
+	$about->show_all;
+}
+
+sub reconfigure {
+	exec $0;
+}
+
+sub out {
+	Gtk2->main_quit;
+}
