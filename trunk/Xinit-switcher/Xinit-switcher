@@ -1,0 +1,203 @@
+#!/usr/bin/perl -ws
+
+################################################################################
+#Xinit-switcher
+#Copyright (C) 2006  Olivier Duclos <olivierduclos@oliwer.net>
+#
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#as published by the Free Software Foundation; either version 2
+#of the License, or any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program; if not, write to the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+################################################################################
+
+my $VERSION = '0.1';
+
+use strict;
+use Tk;
+use vars qw($select $wait $v $h);
+
+## CONFIG #################################################################
+# Choose your favorite terminal                                           #
+my $xterm = 'x-terminal-emulator';  # or konsole, gnome-terminal...       #
+                                                                          #
+# Choose the location of your directory containing your Xinit files.      #
+# Changing this is not encouraged.                                        #
+my $PATH = $ENV{HOME} . '/.Xinit/';                                       #
+## END OF CONFIG ##########################################################
+
+checkArgs();
+my @XinitList = getXinitList();
+my $defaultChoice = getDefault();
+our $stop = 'no';
+
+
+######## Interface #########
+
+my $fenetre = new MainWindow (-title => 'Xinit-switcher', -cursor => 'left_ptr');
+centerWindow($fenetre);
+$fenetre -> bind ("<Motion>", sub {alarm 0;});
+$fenetre -> bind ("<Any-Key>", sub {alarm 0;});
+$fenetre -> bind ("<Key-Return>", \&runXinit);
+$fenetre -> bind ("<Alt-KeyPress-x>", \&runXterm);
+$fenetre -> bind ("<Up>", \&arrowUp);
+$fenetre -> bind ("<Down>", \&arrowDown);
+
+our $w_selection = $fenetre -> Button ( -text => 'Run' ,
+                                        -command => \&runXinit);
+my $w_xterm = $fenetre -> Button ( -text => 'Xterm' ,
+                                   -command => \&runXterm,
+                                   -underline => 0);
+
+my $w_list = $fenetre -> Listbox ( -selectmode => 'single',
+                                   -width => 35,
+                                   -height => 7);
+$w_list -> insert ( 0 , @XinitList);
+$w_list -> selectionSet($defaultChoice);
+
+$w_list -> pack ();
+$w_selection -> pack ( -fill => 'x' );
+$w_xterm -> pack ();
+autoRun();
+MainLoop ();
+
+
+####### Subs #######
+
+sub getXinitList
+{
+    my @list = glob("$PATH*");
+    foreach (@list)
+    {
+        if (! -x $_) { delete $list[$_] }
+    }
+    return @list;
+}
+
+sub getDefault
+{
+    if (defined($select) && $select ne '')
+    {
+      my $index;
+      for ($index = 0; $index < scalar(@XinitList); $index++)
+      {
+        if ($XinitList[$index] =~ /$select$/) { return $index; }
+        else { $defaultChoice = 0; }
+      }
+    }
+    else {
+      $defaultChoice = 0;
+    }
+    
+    return $defaultChoice;
+}
+
+sub decount # doesn't work. We use autoRun() instead.
+{
+    if(defined($wait) && $wait ne '' && $wait =~ /[0-99]/)
+    {
+       for (my $i = $wait; $i >= 0; $i--)
+       {
+           $w_selection -> configure (-text => "$i second(s) before run...");
+           if($stop eq 'yes') {
+              $w_selection -> configure (-text => 'Run');
+              return;
+           }
+           if($i == 0) { &runXinit; }
+           sleep 1;
+       }
+    }
+    else { return; }
+}
+
+sub centerWindow {
+    my($window, $width, $height) = @_;
+    
+    $window->idletasks;
+    $width = $window->reqwidth unless $width;
+    $height = $window->reqheight unless $height;
+    my $x = int(($window->screenwidth / 2) - ($width / 2));
+    my $y = int(($window->screenheight / 2) - ($height / 2));
+    $window->geometry($width . "x" . $height . "+" . $x . "+" . $y);
+}
+
+
+sub runXinit
+{
+    my @selection = $w_list -> curselection();
+    my $selected_xinit = $w_list -> get($selection[0]);
+    exec($selected_xinit);
+}
+
+sub runXterm
+{
+    exec($xterm);
+}
+
+sub autoRun
+{
+    if(defined($wait) && $wait ne '' && $wait =~ /[0-99]/)
+    {
+       $SIG{ALRM} = "runXinit";
+       alarm($wait);
+    }
+}
+
+sub arrowUp
+{
+    alarm 0;
+    my @currentSel = $w_list -> curselection();
+    if ( $currentSel[0] == 0) { return; }
+    else
+    {
+       $w_list -> selectionClear($currentSel[0]);
+       $w_list -> selectionSet($currentSel[0] - 1);
+    }
+}
+
+sub arrowDown
+{
+    alarm 0;
+    my @currentSel = $w_list -> curselection();
+    my $itemsNumber = ($w_list -> size) - 1;
+    if ($currentSel[0] == $itemsNumber) { return; }
+    else
+    {
+       $w_list -> selectionClear($currentSel[0]);
+       $w_list -> selectionSet($currentSel[0] + 1);
+    }
+}
+
+sub checkArgs
+{
+    if (defined($h) || defined($v))
+    {
+       print <<"END";
+Xinit-switcher version $VERSION
+
+Usage : Xinit-switcher [-v] [-h] [-select=MyXinitFile] [-wait=n]
+
+MyXinitFile :    Name of the Xinit file you want to be selected by default at
+                 Xinit-switcher startup.
+
+n :              Number of second to wait before the automatic execution
+                 of the selected Xinit file.
+
+For more information on Xinit-switcher, type man Xinit-switcher.
+
+This program is a free software released under the GPL v2 license.
+
+Copyright (c) 2006 Olivier Duclos <olivierduclos\@oliwer.net>
+
+END
+       exit;
+    }
+}
