@@ -1,0 +1,25 @@
+# This file is totaly useless
+﻿on_window1_destroy
+
+on_ouvrir1_activate
+on_enregistrer1_activate
+on_enregistrer_sous1_activate
+on_quitter1_activate
+
+on_one-byte_octal1_activate
+on_one-byte_character1_activate
+on_two-byte_decimal1_activate
+on_two-byte_octal1_activate
+on_two-byte_hexa1_activate
+on_hexa+ascii1_activate
+on_character+octal1_activate
+on_character+decimal1_activate
+on_character+hexa1_activate
+
+on_A_propos1_activate
+
+on_btn_abort_fs_clicked
+on_btn_open_file_clicked
+
+on_button_dosave_clicked
+on_button_abort_save_clicked
