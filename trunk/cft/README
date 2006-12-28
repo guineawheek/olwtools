@@ -1,0 +1,9 @@
+cft - Create From Template
+
+
+cft is a very handy tool to create new files from a template. It is specialy designed for text files like sources codes, but you can use it for anything else.
+
+
+INSTALL INSTRUCTIONS
+
+Run install.sh as root. I recommand you to edit the 'editor' file before installing. Just put the name of your favorite text editor in it.
