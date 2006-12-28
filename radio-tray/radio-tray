@@ -184,7 +184,7 @@ sub tray_handler
 sub play () {
 	my $file = shift @_;
 	if (-e "$path/$file") {
-		system "$player $path/$file";
+		exec "$player $path/$file" unless fork;
 	}
 	else {
 		my $popup = Gtk2::MessageDialog->new (undef, 'modal', 'info', 'ok', "Sorry, $file does not exist.");
