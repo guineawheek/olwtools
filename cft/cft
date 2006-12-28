@@ -1,0 +1,172 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+cft - Create From Template
+
+=head1 SYNOPSIS
+
+  # This will create a new html file from the html template
+  cft html document.html
+  
+  # This will create a virgin shell script and make it executable
+  cft sh script.sh x
+
+=head1 REQUIRES
+
+Perl5.004
+
+=head1 DESCRIPTION
+
+B<cft> is a very handy tool to create new files from a template. It is specialy designed for text files like sources codes, but you can use it for anything else.
+By default, template files are locates in C<~/.cft/*.tmpl>. They are simple text files, so you can easily create your own. So, when you type C<cft py script.py> cft will use the template C<~/.cft/py.tmpl>.
+
+Bonus : you automaticaly make you file executable by adding "x" as third argument (look in the synopsis).
+
+After having created your file, cft will automatically open it in your favorite text editor. The name of this text editor is set in C<~/.cft/editor>. If this file is empty, no editor will be launched.
+
+=head1 TEMPLATES
+
+There is no special syntax for template files, except the following magic words.
+
+=over 4
+
+=item FULLDATE
+
+This magic word will write the result of the 'date' command in your file.
+
+=item FILENAME
+
+This writes the file name of the file you are creating.
+
+=back
+
+=head1 TODO
+
+Implement more magic words.
+
+Adding templates.
+
+=head1 BUGS
+
+Not yet...
+
+=head1 COPYRIGHT
+
+Copyright (c) 2006 Olivier Duclos. All rights reserved.
+
+This is a free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+=head1 AUTHOR
+
+Olivier Duclos C<olivierduclos@oliwer.net>
+
+=cut
+
+
+
+use strict;
+use Cwd;
+
+my $VERSION = 0.0.1;
+
+my $confdir = "$ENV{HOME}/.cft";
+
+&firstTimeRun;
+
+&testArgs;
+
+my $tmpl = &getTemplate;
+
+my $text = &parseTemplate;
+
+my $file = &createFile;
+
+&openEditor;
+
+
+## Subs ##
+
+sub firstTimeRun {
+   if (! -d $confdir) {
+      print "First time running: creating configuration files...";
+      mkdir $confdir;
+      system("cp -r /usr/local/share/cft/* $confdir");
+      print "   done\n";
+   }
+}
+
+sub testArgs {
+    if (!defined($ARGV[0]) && !defined($ARGV[1])) {
+       die "Wrong usage. See 'cft -h' for help.\n";
+    }
+    else {
+       if ($ARGV[0] eq "-h") {
+          print "No help provided here. See 'man cft'.\n";
+          exit;
+       }
+    }
+}
+
+sub getTemplate {
+    my $file = "$confdir/$ARGV[0].tmpl";
+    if (! -f $file) {
+       print "This template does not exist.\n";
+       exit;
+    }
+    my $tmpl;
+    open FILE, $file || die "Wrong file type.\n";
+    while (<FILE>) {
+       $tmpl .= $_;
+    }
+    close FILE;
+    return $tmpl;
+}
+
+sub parseTemplate {
+   my $text = $tmpl;
+   
+   my $date = (`date`);
+   chomp $date;
+   $text =~ s/FULLDATE/$date/;
+   
+   $text =~ s/FILENAME/$ARGV[1]/;
+   
+   return $text;
+}
+
+sub createFile {
+    my $file = getcwd . "/" . $ARGV[1];
+
+    if (-f $file) {
+       print ("This file already exists.\n");
+       exit;
+    }
+
+    open FILE, "> $file" || die ("Cannot create new file.\n");
+    print FILE "$text\n";
+    close FILE;
+
+    if (defined($ARGV[2]) && $ARGV[2] eq "x") {
+       system("chmod +x $file");
+    }
+
+    return $file;
+}
+
+sub openEditor {
+    if (! -f "$confdir/editor") {
+       die "Missing 'editor' configuration file.\n";
+    }
+    open STUFF, "$confdir/editor";
+    my $editor;
+    while (<STUFF>) {
+        $editor .= $_;
+    }
+    close STUFF;
+    chomp $editor;
+    if ($editor eq "") { }
+    else {
+       exec("$editor $file") unless fork();
+    }
+}
