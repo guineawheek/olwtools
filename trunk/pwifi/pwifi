@@ -1,0 +1,7 @@
+#!/usr/bin/perl
+
+use lib "/usr/local/share/pwifi/";
+
+use gwifi;
+
+Gtk2->main;
