@@ -76,6 +76,8 @@ my $icon = Gtk2::Image->new_from_pixbuf($pixbuf);
 
 # Tray icon
 my $trayicon = Gtk2::TrayIcon->new("Radios");
+my $tooltip= Gtk2::Tooltips->new;
+$tooltip->set_tip($trayicon, "raddio-tray");
 my $eventbox = Gtk2::EventBox->new;
 $eventbox->add($icon);
 $trayicon->add($eventbox);
