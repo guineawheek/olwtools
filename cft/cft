@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 =head1 NAME
 
@@ -66,6 +66,7 @@ Olivier Duclos C<olivierduclos@oliwer.net>
 
 
 use strict;
+use warnings;
 use Cwd;
 
 my $VERSION = 0.0.1;
@@ -91,7 +92,15 @@ sub firstTimeRun {
    if (! -d $confdir) {
       print "First time running: creating configuration files...";
       mkdir $confdir;
-      system("cp -r /usr/local/share/cft/* $confdir");
+      if (-d "/usr/local/share/cft") {
+         system("cp -r /usr/local/share/cft/* $confdir");
+      }
+      else {
+         if (-d "/usr/share/cft") {
+	    system("cp -r /usr/share/cft/* $confdir");
+	 }
+	 else { die "Could not create cft configuaration directory.\n"; }
+      }
       print "   done\n";
    }
 }
