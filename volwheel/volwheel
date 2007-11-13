@@ -24,7 +24,7 @@ use Gtk2::TrayIcon;
 use vars qw/$channel $mixer $tooltip/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2"; # 2007.11.12
+our $VERSION = "0.2"; # 2007.11.13
 
 # M A I N #
 
@@ -199,7 +199,7 @@ sub config_dialog {
 }
 
 sub update_tooltip {
-	my $level = `amixer cget name='PCM Playback Volume' | grep :`;
+	my $level = `amixer cget name='$channel Playback Volume' | grep :`;
 	$level =~ s/^.*=([0-9]*),.*$/$1/;
 	chomp($level);
 	my $percent = sprintf("%d%%", $level/255*100);
