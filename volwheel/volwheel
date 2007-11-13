@@ -140,7 +140,8 @@ sub get_conf {
 }
 
 sub save_config {
-	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open configuration file";
+	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
+	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open/create configuration file";
 	print CONFIG "$channel\n$mixer\n";
 	close CONFIG;
 }
@@ -184,6 +185,7 @@ sub config_dialog {
 							$channel = $entry_channel->get_text;
 							$mixer = $entry_mixer->get_text;
 							&save_config;
+							&update_tooltip;
 							$winconf->destroy;
 						 } );
 	$btn_cancel->show;
@@ -199,10 +201,10 @@ sub config_dialog {
 }
 
 sub update_tooltip {
-	my $level = `amixer cget name='$channel Playback Volume' | grep :`;
-	$level =~ s/^.*=([0-9]*),.*$/$1/;
+	my $level = `amixer get $channel | grep -m1 %`;
+	$level =~ s/.*\[([0-9]*)%.*/$1/;
 	chomp($level);
-	my $percent = sprintf("%d%%", $level/255*100);
+	my $percent = $level . "%";
 	if ($percent eq "0%") { $percent = "Mute" }
 	$tooltip->set_tip($trayicon, "$channel : $percent");
 }
