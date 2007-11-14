@@ -24,23 +24,22 @@ use Gtk2::TrayIcon;
 use vars qw/$channel $mixer $tooltip/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2"; # 2007.11.13
+our $VERSION = "0.2.1"; # 2007.11.14
 
 # M A I N #
 
-($channel, $mixer) = &get_conf;
+&get_conf;
 
 # Tray icon
-my $pixbuf = Gtk2::Gdk::Pixbuf->new_from_file("/usr/share/icons/gnome/24x24/apps/multimedia-volume-control.png");
-my $icon = Gtk2::Image->new_from_pixbuf($pixbuf);
-my $trayicon = Gtk2::TrayIcon->new("volwheel");
+my $icon = Gtk2::Image->new_from_file("/usr/share/icons/gnome/24x24/apps/multimedia-volume-control.png");
+my $trayicon = Gtk2::TrayIcon->new($APPNAME);
 $tooltip= Gtk2::Tooltips->new;
 &update_tooltip;
 my $eventbox = Gtk2::EventBox->new;
-$eventbox->add($icon);
+   $eventbox->add($icon);
+   $eventbox->signal_connect('button_release_event', \&click_handler);
+   $eventbox->signal_connect('scroll_event', \&scroll_handler);
 $trayicon->add($eventbox);
-$eventbox->signal_connect( 'button_release_event', \&click_handler );
-$eventbox->signal_connect( 'scroll_event', \&scroll_handler );
 $trayicon->show_all;
 
 Gtk2->main;
@@ -62,16 +61,23 @@ sub voldown {
 }
 
 sub mute {
-	if (`amixer get $channel | grep '\[on\]'` eq "") {
-		system "amixer set $channel unmute";
+	# fake mute
+	if (`amixer get $channel | grep pswitch` eq "")
+	{
+		my $level = `amixer get $channel | grep -m1 %`;
+		$level =~ s/.*\[([0-9]*)%.*/$1/;
+		chomp($level);
+		if ($level eq "0") { system "amixer set $channel 75%+ > /dev/null" }
+		else { system "amixer set $channel 100%- > /dev/null" }
 	}
+	# real mute
 	else {
-		system "amixer set $channel mute";
+		system "amixer set $channel toggle > /dev/null";
 	}
 	&update_tooltip;
 }
 
-sub launchMixer {
+sub launch_mixer {
 	exec $mixer unless fork;
 }
 
@@ -79,7 +85,7 @@ sub click_handler {
 	my ($check, $event) = @_;
 	
 	if (1 eq $event->button) {
-		&launchMixer;
+		&launch_mixer;
 	}
 	else {
 		if (3 eq $event->button) {
@@ -103,40 +109,44 @@ sub scroll_handler {
 }
 
 sub popup {
-	my $item_factory = Gtk2::ItemFactory->new("Gtk2::Menu", '<main>', undef);
-	my $popup_menu = $item_factory->get_widget('<main>');
-	my @menu_items = (
-			   { path => '/About',    item_type => '<Item>', callback => \&about_dialog},
-			   { path => '/Settings', item_type => '<Item>', callback => \&config_dialog},
-			   { path => '/Exit',     item_type => '<Item>', callback => \&out}
-			 );
-
-	$item_factory->create_items(undef, @menu_items);
-	$popup_menu->show_all;
-	$popup_menu->popup(undef, undef, undef, undef, 0, 0);
+	my $menu = Gtk2::Menu->new;
+	my $item_prefs = Gtk2::ImageMenuItem->new_from_stock('gtk-preferences');
+	my $item_about = Gtk2::ImageMenuItem->new_from_stock('gtk-about');
+	my $item_separ = Gtk2::SeparatorMenuItem->new;
+	my $item_quit  = Gtk2::ImageMenuItem->new_from_stock('gtk-quit');
+	
+	$item_prefs->signal_connect('activate', \&config_dialog);
+	$item_about->signal_connect('activate', \&about_dialog);
+	$item_quit->signal_connect('activate', \&out);
+	
+	$menu->add($item_prefs);
+	$menu->add($item_about);
+	$menu->add($item_separ);
+	$menu->add($item_quit);
+	
+	$menu->show_all;
+	$menu->popup(undef, undef, undef, undef, 0, 0);
 }
 
 sub get_conf {
-	my $chan = "PCM";
-	my $mix = "xterm -e 'alsamixer'";
+	$channel = "PCM";
+	$mixer = "xterm -e 'alsamixer'";
 	if (-w "$ENV{HOME}/.config/volwheel") {
 		open (CONFIG, "$ENV{HOME}/.config/volwheel") or die "Error : cannot open existing config file.";
 		my @config = <CONFIG>;
-		$chan = $config[0] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
+		$channel = $config[0] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
 					unlink "$ENV{HOME}/.config/volwheel";
-		$mix = $config[1] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
+		$mixer = $config[1] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
 					unlink "$ENV{HOME}/.config/volwheel";
-		chomp($chan);
-		chomp($mix);
+		chomp($channel);
+		chomp($mixer);
 		close CONFIG;
 	}
 	else {
 		# autodetect the mixer
-		if (-x "/usr/bin/gnome-alsamixer") { $mix = "gnome-alsamixer"; }
-		if (-x "/usr/bin/xfce4-mixer") { $mix = "xfce4-mixer"; }
+		if (-x "/usr/bin/gnome-alsamixer") { $mixer = "gnome-alsamixer"; }
+		if (-x "/usr/bin/xfce4-mixer") { $mixer = "xfce4-mixer"; }
 	}
-	
-	return ($chan, $mix);
 }
 
 sub save_config {
@@ -182,12 +192,12 @@ sub config_dialog {
 	$btn_cancel->signal_connect(clicked => sub { $winconf->destroy });
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
-							$channel = $entry_channel->get_text;
-							$mixer = $entry_mixer->get_text;
-							&save_config;
-							&update_tooltip;
-							$winconf->destroy;
-						 } );
+						  $channel = $entry_channel->get_text;
+						  $mixer = $entry_mixer->get_text;
+						  &save_config;
+						  &update_tooltip;
+						  $winconf->destroy;
+						 });
 	$btn_cancel->show;
 	$btn_save->show;
 	$hbox3->pack_start($btn_cancel, 0, 0, 5);
@@ -201,11 +211,17 @@ sub config_dialog {
 }
 
 sub update_tooltip {
-	my $level = `amixer get $channel | grep -m1 %`;
-	$level =~ s/.*\[([0-9]*)%.*/$1/;
-	chomp($level);
-	my $percent = $level . "%";
-	if ($percent eq "0%") { $percent = "Mute" }
+	my $percent = undef;
+	if (`amixer get $channel | grep off` ne "") {
+		$percent = "Mute"; # Real mute
+	}
+	else {
+		my $level = `amixer get $channel | grep -m1 %`;
+		$level =~ s/.*\[([0-9]*)%.*/$1/;
+		chomp($level);
+		$percent = $level . "%";
+		if ($percent eq "0%") { $percent = "Mute" } # Fake mute
+	}
 	$tooltip->set_tip($trayicon, "$channel : $percent");
 }
 
@@ -216,7 +232,6 @@ sub about_dialog {
 	$about->set_copyright("Copyright (c) Olivier Duclos 2007");
 	$about->set_comments("Set volume with the mousewheel.");
 	$about->set_website("oliwer\@free.fr");
-	$about->set_logo($pixbuf);
 	$about->run;
 	$about->destroy;
 }
