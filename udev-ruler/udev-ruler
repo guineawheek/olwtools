@@ -1,5 +1,0 @@
-#!/usr/bin/perl -w   #coding: utf-8
-
-use udevruler ;
-
-Gtk2->main ;
