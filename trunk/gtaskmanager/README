@@ -1,0 +1,20 @@
+********************************************
+**************  gTaskmanager  **************
+********************************************
+
+gTaskmanager is a small taskmanager based on GTK+. You'll need at least
+gtk v.2.8 to use this program.
+
+You can check for new releases on http://oliwer.net. Please send bug reports
+at Olivier Duclos <oliwer@free.fr>.
+
+
+** Building **
+
+./configure
+make
+make install (as root)
+
+** Usage **
+
+The GUI can be started by running 'gtaskmanager'.
