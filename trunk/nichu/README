@@ -1,0 +1,26 @@
+
+  N I C H U
+
+Nichu is a basic quick image hosting solution in PHP inspired of
+Imageshack. It was made to be as simple as possible to install and
+to be usable even on low-cost shared hosting. While it has very few
+features, Nichu is fast, secured, and easily customisable.
+
+Requierments :
+ * PHP4 or PHP5
+ * The GD module
+
+
+Installation
+------------
+ * Extract this archive on your serveur
+ * Make sure that the 'img' and 'thumb' folders have writting
+   permissions
+ * (optionnal) modify config.php
+ * Profit !!!
+
+
+Contact
+-------
+Olivier Duclos <oliwer@free.fr>
+http://oliwer.net
