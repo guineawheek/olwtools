@@ -2,11 +2,14 @@
 **************  gTaskmanager  **************
 ********************************************
 
-gTaskmanager is a small taskmanager based on GTK+. You'll need at least
-gtk v.2.8 to use this program.
+gTaskmanager is a small taskmanager based on GTK+. You'll need at
+least gtk v.2.8 to use this program.
 
-You can check for new releases on http://oliwer.net. Please send bug reports
-at Olivier Duclos <oliwer@free.fr>.
+gTaskmanager is a fork of xfce4-taskmanager, whithout any xfce
+depensencies.
+
+You can check for new releases at http://oliwer.net. Please send 
+bug reports to Olivier Duclos <oliwer@free.fr>.
 
 
 ** Building **
@@ -17,4 +20,4 @@ make install (as root)
 
 ** Usage **
 
-The GUI can be started by running 'gtaskmanager'.
+Run 'gtaskmanager'
