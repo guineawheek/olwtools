@@ -1,0 +1,18 @@
+VolWheel
+
+For help on how to use VolWheel, type 'volwheel --help'.
+
+You can track this software on http://oliwer.net/weblog/
+
+
+Requierements
+ * Perl 5
+ * Gtk2 perl module
+ * Gtk2::TrayIcon perl module
+ * alsa-utils (for amixer)
+
+Installation
+ * Copy volwheel somewhere in your path
+ * Launch it
+ * Configure it
+ * Profit !!!

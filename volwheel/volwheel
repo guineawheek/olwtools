@@ -19,66 +19,82 @@
 
 use strict;
 use warnings;
-use Gtk2 '-init';
-use Gtk2::TrayIcon;
-use vars qw/$channel $mixer $tooltip/;
+use vars qw/%opt $tooltip $trayicon/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2.1"; # 2007.11.14
+our $VERSION = "0.2.2"; # 2008.04.08
 
 # M A I N #
 
 &get_conf;
 
-# Tray icon
-my $icon = Gtk2::Image->new_from_file("/usr/share/icons/gnome/24x24/apps/multimedia-volume-control.png");
-my $trayicon = Gtk2::TrayIcon->new($APPNAME);
-$tooltip= Gtk2::Tooltips->new;
-&update_tooltip;
-my $eventbox = Gtk2::EventBox->new;
-   $eventbox->add($icon);
-   $eventbox->signal_connect('button_release_event', \&click_handler);
-   $eventbox->signal_connect('scroll_event', \&scroll_handler);
-$trayicon->add($eventbox);
-$trayicon->show_all;
-
-Gtk2->main;
-
-
+if (defined(@ARGV)) {
+	# command line
+	use Switch;
+	switch ($ARGV[0]) {
+		case ["-h", "--help"]		{&usage}
+		case ["-v", "--version"]	{&version}
+		case ["-i", "--increase"]	{&volup}
+		case ["-d", "--decrease"]	{&voldown}
+		case ["-m", "--mute"]		{&mute}
+		case ["-s", "--status"]		{&status}
+		else				{&usage}
+	}
+}
+else {
+	# Tray icon
+	use Gtk2 '-init';
+	use Gtk2::TrayIcon;
+	my $icon = Gtk2::Image->new_from_file("/usr/share/icons/gnome/24x24/apps/multimedia-volume-control.png");
+	$trayicon = Gtk2::TrayIcon->new($APPNAME);
+	$tooltip= Gtk2::Tooltips->new;
+	&update_tooltip;
+	my $eventbox = Gtk2::EventBox->new;
+	   $eventbox->add($icon);
+	   $eventbox->signal_connect('button_release_event', \&click_handler);
+	   $eventbox->signal_connect('scroll_event', \&scroll_handler);
+	$trayicon->add($eventbox);
+	$trayicon->show_all;
+	Gtk2->main;
+}
 
 
 
 # S U B S #
 
 sub volup {
-	system "amixer set $channel 3%+ > /dev/null";
-	&update_tooltip;
+	system "amixer set $opt{\"channel\"} $opt{\"incr\"}%+ > /dev/null";
 }
 
 sub voldown {
-	system "amixer set $channel 3%- > /dev/null";
-	&update_tooltip;
+	system "amixer set $opt{\"channel\"} $opt{\"incr\"}%- > /dev/null";
 }
 
 sub mute {
 	# fake mute
-	if (`amixer get $channel | grep pswitch` eq "")
+	if (`amixer get $opt{"channel"} | grep pswitch` eq "")
 	{
-		my $level = `amixer get $channel | grep -m1 %`;
+		my $level = `amixer get $opt{"channel"} | grep -m1 %`;
 		$level =~ s/.*\[([0-9]*)%.*/$1/;
 		chomp($level);
-		if ($level eq "0") { system "amixer set $channel 75%+ > /dev/null" }
-		else { system "amixer set $channel 100%- > /dev/null" }
+		if ($level eq "0") {
+			$opt{"beforemute"} = 75 unless defined($opt{"beforemute"});
+			system "amixer set $opt{\"channel\"} $opt{\"beforemute\"}%+ > /dev/null"
+		}
+		else {
+			$opt{"beforemute"} = $level;
+			system "amixer set $opt{\"channel\"} 100%- > /dev/null";
+		}
 	}
 	# real mute
 	else {
-		system "amixer set $channel toggle > /dev/null";
+		system "amixer set $opt{\"channel\"} toggle > /dev/null";
 	}
-	&update_tooltip;
 }
 
 sub launch_mixer {
-	exec $mixer unless fork;
+	exec $opt{"mixer"} unless fork;
+	$SIG{CHLD} = "IGNORE";
 }
 
 sub click_handler {
@@ -93,6 +109,7 @@ sub click_handler {
 		}
 		else {
 			&mute;
+			&update_tooltip;
 		}
 	}
 }
@@ -102,9 +119,11 @@ sub scroll_handler {
 	
 	if ("up" eq $event->direction) {
 		&volup;
+		&update_tooltip;
 	}
 	else {
 		&voldown;
+		&update_tooltip;
 	}
 }
 
@@ -129,30 +148,31 @@ sub popup {
 }
 
 sub get_conf {
-	$channel = "PCM";
-	$mixer = "xterm -e 'alsamixer'";
+	$opt{"channel"} = "PCM";
+	$opt{"mixer"} = "xterm -e 'alsamixer'";
+	$opt{"incr"} = 3;
 	if (-w "$ENV{HOME}/.config/volwheel") {
-		open (CONFIG, "$ENV{HOME}/.config/volwheel") or die "Error : cannot open existing config file.";
+		open (CONFIG, "$ENV{HOME}/.config/volwheel");
 		my @config = <CONFIG>;
-		$channel = $config[0] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
-					unlink "$ENV{HOME}/.config/volwheel";
-		$mixer = $config[1] or print "Incorrect config file. Removing it. Please restart $APPNAME.\n" &&
-					unlink "$ENV{HOME}/.config/volwheel";
-		chomp($channel);
-		chomp($mixer);
+		if ($config[0]) { $opt{"channel"} = $config[0]; }
+		if ($config[1]) { $opt{"mixer"} = $config[1]; }
+		if ($config[2] && $config[2] =~ /^\d+$/) { $opt{"incr"} = $config[2]; }
+		chomp($opt{"channel"});
+		chomp($opt{"mixer"});
+		chomp($opt{"incr"});
 		close CONFIG;
 	}
 	else {
 		# autodetect the mixer
-		if (-x "/usr/bin/gnome-alsamixer") { $mixer = "gnome-alsamixer"; }
-		if (-x "/usr/bin/xfce4-mixer") { $mixer = "xfce4-mixer"; }
+		if (-x "/usr/bin/gnome-alsamixer") { $opt{"mixer"} = "gnome-alsamixer"; }
+		if (-x "/usr/bin/xfce4-mixer") { $opt{"mixer"} = "xfce4-mixer"; }
 	}
 }
 
 sub save_config {
 	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
-	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open/create configuration file";
-	print CONFIG "$channel\n$mixer\n";
+	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open/create configuration file\n";
+	print CONFIG "$opt{\"channel\"}\n$opt{\"mixer\"}\n$opt{\"incr\"}\n";
 	close CONFIG;
 }
 
@@ -166,9 +186,9 @@ sub config_dialog {
 	my $vbox = Gtk2::VBox->new(1, 5);
 	
 	my $hbox1 = Gtk2::HBox->new(0, 2);
-	my $lbl_channel = Gtk2::Label->new("Default channel : ");
+	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
-	$entry_channel->set_text($channel);
+	$entry_channel->set_text($opt{"channel"});
 	$lbl_channel->show;
 	$entry_channel->show;
 	$hbox1->pack_start($lbl_channel, 0, 0, 5);
@@ -177,9 +197,9 @@ sub config_dialog {
 	$vbox->pack_start($hbox1, 0, 0, 0);
 	
 	my $hbox2 = Gtk2::HBox->new(0, 2);
-	my $lbl_mixer = Gtk2::Label->new("Default mixer : ");
+	my $lbl_mixer = Gtk2::Label->new("Default mixer");
 	my $entry_mixer = Gtk2::Entry->new;
-	$entry_mixer->set_text($mixer);
+	$entry_mixer->set_text($opt{"mixer"});
 	$lbl_mixer->show;
 	$entry_mixer->show;
 	$hbox2->pack_start($lbl_mixer, 0, 0, 5);
@@ -187,13 +207,25 @@ sub config_dialog {
 	$hbox2->show;
 	$vbox->pack_start($hbox2, 0, 0, 0);
 	
+	my $hbox22 = Gtk2::HBox->new(0, 2);
+	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
+	my $spin_incr = Gtk2::SpinButton->new_with_range(1, 99, 1);
+	$spin_incr->set_value($opt{"incr"});
+	$lbl_incr->show;
+	$spin_incr->show;
+	$hbox22->pack_start($lbl_incr, 0, 0, 5);
+	$hbox22->pack_end($spin_incr, 0, 0, 5);
+	$hbox22->show;
+	$vbox->pack_start($hbox22, 0, 0, 0);
+	
 	my $hbox3 = Gtk2::HBox->new(0, 2);
 	my $btn_cancel = Gtk2::Button->new_from_stock('gtk-cancel');
 	$btn_cancel->signal_connect(clicked => sub { $winconf->destroy });
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
-						  $channel = $entry_channel->get_text;
-						  $mixer = $entry_mixer->get_text;
+						  $opt{"channel"} = $entry_channel->get_text;
+						  $opt{"mixer"} = $entry_mixer->get_text;
+						  $opt{"incr"} = $spin_incr->get_value_as_int;
 						  &save_config;
 						  &update_tooltip;
 						  $winconf->destroy;
@@ -210,30 +242,75 @@ sub config_dialog {
 	$winconf->show;
 }
 
-sub update_tooltip {
+sub get_volume {
 	my $percent = undef;
-	if (`amixer get $channel | grep off` ne "") {
+	if (`amixer get $opt{"channel"} | grep off` ne "") {
 		$percent = "Mute"; # Real mute
 	}
 	else {
-		my $level = `amixer get $channel | grep -m1 %`;
+		my $level = `amixer get $opt{"channel"} | grep -m1 %`;
 		$level =~ s/.*\[([0-9]*)%.*/$1/;
 		chomp($level);
 		$percent = $level . "%";
 		if ($percent eq "0%") { $percent = "Mute" } # Fake mute
 	}
-	$tooltip->set_tip($trayicon, "$channel : $percent");
+	return $percent;
+}
+
+sub update_tooltip {
+	my $volume = &get_volume;
+	$tooltip->set_tip($trayicon, "$opt{\"channel\"} : $volume");
+}
+
+sub status {
+	my $volume = &get_volume;
+	print ("$opt{\"channel\"} : $volume\n");
 }
 
 sub about_dialog {
 	my $about = Gtk2::AboutDialog->new;
 	$about->set_program_name($APPNAME);
 	$about->set_version($VERSION);
-	$about->set_copyright("Copyright (c) Olivier Duclos 2007");
-	$about->set_comments("Set volume with the mousewheel.");
-	$about->set_website("oliwer\@free.fr");
+	$about->set_copyright("Copyright (c) Olivier Duclos 2008");
+	$about->set_comments("Set volume with the mousewheel");
+	$about->set_website("http://oliwer.net/weblog/");
 	$about->run;
 	$about->destroy;
+}
+
+sub usage {
+print "usage: volwheel [option]
+
+  -i --increase        increase volume
+  -d --decrease        decrease volume
+  -m --mute            mute or unmute
+  -s --status          show the current channel and volume
+  -h --help            show this help
+  -v --version         show version informations
+
+When called without options, volwheel is a trayicon which allows you to
+quickly see or change the sound volume of your computer. VolWheel makes an
+heavy use of amixer, and thus will only work on ALSA systems.
+
+Trayicon usage :
+  * scroll up          increase volume
+  * scroll down        decrease volume
+  * left click         launch a mixer software (alsamixer by default)
+  * right click        menu to access to the configuration panel
+  * middle click       mute or unmute
+
+";
+}
+
+sub version {
+print "$APPNAME version $VERSION
+Copyright (c) Olivier Duclos 2008.
+http://oliwer.net/weblog/
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.\n\n";
 }
 
 sub out {
