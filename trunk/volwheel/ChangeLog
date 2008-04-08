@@ -1,0 +1,13 @@
+2008-04-08 - v0.2.2
+ * Added a command line mode
+ * Added the possibility to configure volume incrementation
+ * Fixed the zombie bug when launching a mixer
+   (thanx to Pablo Flouret)
+ * The volume before muting in now saved
+ * Some code clean up
+
+2007-11-14 - v0.2.1
+ * Fixed a bug with muting channels that don't support it
+
+2007-11-13 - v0.2
+ * First public release
