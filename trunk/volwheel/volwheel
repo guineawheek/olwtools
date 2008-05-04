@@ -22,7 +22,7 @@ use warnings;
 use vars qw/%opt $tooltip $trayicon/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2.2"; # 2008.04.08
+our $VERSION = "0.2.3"; # 2008.05.04
 
 # M A I N #
 
@@ -63,37 +63,37 @@ else {
 # S U B S #
 
 sub volup {
-	system "amixer set $opt{\"channel\"} $opt{\"incr\"}%+ > /dev/null";
+	system "amixer set $opt{channel} $opt{incr}%+ > /dev/null";
 }
 
 sub voldown {
-	system "amixer set $opt{\"channel\"} $opt{\"incr\"}%- > /dev/null";
+	system "amixer set $opt{channel} $opt{incr}%- > /dev/null";
 }
 
 sub mute {
 	# fake mute
-	if (`amixer get $opt{"channel"} | grep pswitch` eq "")
+	if (`amixer get $opt{channel} | grep pswitch` eq "")
 	{
-		my $level = `amixer get $opt{"channel"} | grep -m1 %`;
+		my $level = `amixer get $opt{channel} | grep -m1 %`;
 		$level =~ s/.*\[([0-9]*)%.*/$1/;
 		chomp($level);
 		if ($level eq "0") {
-			$opt{"beforemute"} = 75 unless defined($opt{"beforemute"});
-			system "amixer set $opt{\"channel\"} $opt{\"beforemute\"}%+ > /dev/null"
+			$opt{beforemute} = 75 unless defined($opt{beforemute});
+			system "amixer set $opt{channel} $opt{beforemute}%+ > /dev/null"
 		}
 		else {
-			$opt{"beforemute"} = $level;
-			system "amixer set $opt{\"channel\"} 100%- > /dev/null";
+			$opt{beforemute} = $level;
+			system "amixer set $opt{channel} 100%- > /dev/null";
 		}
 	}
 	# real mute
 	else {
-		system "amixer set $opt{\"channel\"} toggle > /dev/null";
+		system "amixer set $opt{channel} toggle > /dev/null";
 	}
 }
 
 sub launch_mixer {
-	exec $opt{"mixer"} unless fork;
+	exec $opt{mixer} unless fork;
 	$SIG{CHLD} = "IGNORE";
 }
 
@@ -101,7 +101,7 @@ sub click_handler {
 	my ($check, $event) = @_;
 	
 	if (1 eq $event->button) {
-		&launch_mixer;
+		&scale_window;
 	}
 	else {
 		if (3 eq $event->button) {
@@ -148,31 +148,31 @@ sub popup {
 }
 
 sub get_conf {
-	$opt{"channel"} = "PCM";
-	$opt{"mixer"} = "xterm -e 'alsamixer'";
-	$opt{"incr"} = 3;
+	$opt{channel} = "PCM";
+	$opt{mixer} = "xterm -e 'alsamixer'";
+	$opt{incr} = 3;
 	if (-w "$ENV{HOME}/.config/volwheel") {
 		open (CONFIG, "$ENV{HOME}/.config/volwheel");
 		my @config = <CONFIG>;
-		if ($config[0]) { $opt{"channel"} = $config[0]; }
-		if ($config[1]) { $opt{"mixer"} = $config[1]; }
-		if ($config[2] && $config[2] =~ /^\d+$/) { $opt{"incr"} = $config[2]; }
-		chomp($opt{"channel"});
-		chomp($opt{"mixer"});
-		chomp($opt{"incr"});
+		if ($config[0]) { $opt{channel} = $config[0]; }
+		if ($config[1]) { $opt{mixer} = $config[1]; }
+		if ($config[2] && $config[2] =~ /^\d+$/) { $opt{incr} = $config[2]; }
+		chomp($opt{channel});
+		chomp($opt{mixer});
+		chomp($opt{incr});
 		close CONFIG;
 	}
 	else {
 		# autodetect the mixer
-		if (-x "/usr/bin/gnome-alsamixer") { $opt{"mixer"} = "gnome-alsamixer"; }
-		if (-x "/usr/bin/xfce4-mixer") { $opt{"mixer"} = "xfce4-mixer"; }
+		if (-x "/usr/bin/gnome-alsamixer") { $opt{mixer} = "gnome-alsamixer"; }
+		if (-x "/usr/bin/xfce4-mixer") { $opt{mixer} = "xfce4-mixer"; }
 	}
 }
 
 sub save_config {
 	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
 	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open/create configuration file\n";
-	print CONFIG "$opt{\"channel\"}\n$opt{\"mixer\"}\n$opt{\"incr\"}\n";
+	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n";
 	close CONFIG;
 }
 
@@ -188,7 +188,7 @@ sub config_dialog {
 	my $hbox1 = Gtk2::HBox->new(0, 2);
 	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
-	$entry_channel->set_text($opt{"channel"});
+	$entry_channel->set_text($opt{channel});
 	$lbl_channel->show;
 	$entry_channel->show;
 	$hbox1->pack_start($lbl_channel, 0, 0, 5);
@@ -199,7 +199,7 @@ sub config_dialog {
 	my $hbox2 = Gtk2::HBox->new(0, 2);
 	my $lbl_mixer = Gtk2::Label->new("Default mixer");
 	my $entry_mixer = Gtk2::Entry->new;
-	$entry_mixer->set_text($opt{"mixer"});
+	$entry_mixer->set_text($opt{mixer});
 	$lbl_mixer->show;
 	$entry_mixer->show;
 	$hbox2->pack_start($lbl_mixer, 0, 0, 5);
@@ -210,7 +210,7 @@ sub config_dialog {
 	my $hbox22 = Gtk2::HBox->new(0, 2);
 	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
 	my $spin_incr = Gtk2::SpinButton->new_with_range(1, 99, 1);
-	$spin_incr->set_value($opt{"incr"});
+	$spin_incr->set_value($opt{incr});
 	$lbl_incr->show;
 	$spin_incr->show;
 	$hbox22->pack_start($lbl_incr, 0, 0, 5);
@@ -223,9 +223,9 @@ sub config_dialog {
 	$btn_cancel->signal_connect(clicked => sub { $winconf->destroy });
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
-						  $opt{"channel"} = $entry_channel->get_text;
-						  $opt{"mixer"} = $entry_mixer->get_text;
-						  $opt{"incr"} = $spin_incr->get_value_as_int;
+						  $opt{channel} = $entry_channel->get_text;
+						  $opt{mixer} = $entry_mixer->get_text;
+						  $opt{incr} = $spin_incr->get_value_as_int;
 						  &save_config;
 						  &update_tooltip;
 						  $winconf->destroy;
@@ -236,35 +236,69 @@ sub config_dialog {
 	$hbox3->pack_end($btn_save, 0, 0, 5);
 	$hbox3->show;
 	$vbox->pack_start($hbox3, 0, 0, 0);
-	
+
 	$vbox->show;
 	$winconf->add($vbox);
 	$winconf->show;
 }
 
+sub scale_window {
+	my $winscale = Gtk2::Window->new('toplevel');
+	$winscale->set_type_hint('popup-menu');
+	$winscale->set_decorated(0);
+	$winscale->set_border_width(10);
+	$winscale->set_position('mouse');
+	$winscale->signal_connect('focus-out-event' => sub{ $winscale->destroy });
+	
+	my $vbox = Gtk2::VBox->new(0, 4);
+	
+	my $btn_mixer = Gtk2::Button->new_with_label("Mixer");
+	$btn_mixer->signal_connect(clicked => \&launch_mixer);
+	$vbox->pack_start($btn_mixer, 0, 0, 0);
+	
+	my $separator = Gtk2::HSeparator->new;
+	$vbox->pack_start($separator, 0, 0, 0);
+	
+	my $scale = Gtk2::VScale->new_with_range(0, 100, 1);
+	$scale->set_digits(0);
+	$scale->set_value_pos('bottom');
+	$scale->set_inverted(1);
+	$scale->set_size_request(0, 120);
+	$scale->set_value(\&get_volume);
+	$scale->signal_connect('value-changed' => sub { 
+		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null");
+		\&update_tooltip; });
+	$vbox->pack_start($scale, 0, 0, 0);
+	
+	my $label = Gtk2::Label->new($opt{channel});
+	$vbox->pack_start($label, 0, 0, 0);
+	
+	$winscale->add($vbox);
+	$winscale->show_all;
+	$winscale->set_focus;
+}
+
 sub get_volume {
 	my $percent = undef;
-	if (`amixer get $opt{"channel"} | grep off` ne "") {
-		$percent = "Mute"; # Real mute
+	if (`amixer get $opt{channel} | grep off` ne "") {
+		$percent = 0; # Real mute
 	}
 	else {
-		my $level = `amixer get $opt{"channel"} | grep -m1 %`;
-		$level =~ s/.*\[([0-9]*)%.*/$1/;
-		chomp($level);
-		$percent = $level . "%";
-		if ($percent eq "0%") { $percent = "Mute" } # Fake mute
+		$percent = `amixer get $opt{channel} | grep -m1 %`;
+		$percent =~ s/.*\[([0-9]*)%.*/$1/;
+		chomp($percent);
 	}
 	return $percent;
 }
 
 sub update_tooltip {
 	my $volume = &get_volume;
-	$tooltip->set_tip($trayicon, "$opt{\"channel\"} : $volume");
+	$tooltip->set_tip($trayicon, "$opt{channel} : $volume%");
 }
 
 sub status {
 	my $volume = &get_volume;
-	print ("$opt{\"channel\"} : $volume\n");
+	print ("$opt{channel} : $volume%\n");
 }
 
 sub about_dialog {
