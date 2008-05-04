@@ -264,7 +264,7 @@ sub scale_window {
 	$scale->set_value_pos('bottom');
 	$scale->set_inverted(1);
 	$scale->set_size_request(0, 120);
-	$scale->set_value(\&get_volume);
+	$scale->set_value(&get_volume);
 	$scale->signal_connect('value-changed' => sub { 
 		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null");
 		\&update_tooltip; });
