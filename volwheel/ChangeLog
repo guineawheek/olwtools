@@ -1,3 +1,7 @@
+2008-05-04 - v0.2.3
+ * Added a volume scaling window (for times when you don't
+   have a mouse on your laptop)
+
 2008-04-08 - v0.2.2
  * Added a command line mode
  * Added the possibility to configure volume incrementation
