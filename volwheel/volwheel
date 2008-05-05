@@ -53,6 +53,7 @@ else {
 	   $eventbox->add($icon);
 	   $eventbox->signal_connect('button_release_event', \&click_handler);
 	   $eventbox->signal_connect('scroll_event', \&scroll_handler);
+	   $eventbox->signal_connect('enter_notify_event', \&update_tooltip);
 	$trayicon->add($eventbox);
 	$trayicon->show_all;
 	Gtk2->main;
@@ -227,7 +228,6 @@ sub config_dialog {
 						  $opt{mixer} = $entry_mixer->get_text;
 						  $opt{incr} = $spin_incr->get_value_as_int;
 						  &save_config;
-						  &update_tooltip;
 						  $winconf->destroy;
 						 });
 	$btn_cancel->show;
@@ -266,8 +266,7 @@ sub scale_window {
 	$scale->set_size_request(0, 120);
 	$scale->set_value(&get_volume);
 	$scale->signal_connect('value-changed' => sub { 
-		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null");
-		\&update_tooltip; });
+		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null"); });
 	$vbox->pack_start($scale, 0, 0, 0);
 	
 	my $label = Gtk2::Label->new($opt{channel});
