@@ -22,7 +22,7 @@ use warnings;
 use vars qw/%opt $tooltip $trayicon/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2.3"; # 2008.05.04
+our $VERSION = "0.2.4"; # 2008.07.05
 
 # M A I N #
 
