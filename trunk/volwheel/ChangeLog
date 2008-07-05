@@ -1,3 +1,7 @@
+2008-07-05 - v0.2.4
+ * Included volwheel's icon inside the package in order to
+   avoid the gnome-icon-theme dependency
+
 2008-05-04 - v0.2.3
  * Added a volume scaling window (for times when you don't
    have a mouse on your laptop)

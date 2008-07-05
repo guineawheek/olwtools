@@ -45,7 +45,7 @@ else {
 	# Tray icon
 	use Gtk2 '-init';
 	use Gtk2::TrayIcon;
-	my $icon = Gtk2::Image->new_from_file("/usr/share/icons/gnome/24x24/apps/multimedia-volume-control.png");
+	my $icon = Gtk2::Image->new_from_file("/usr/share/pixmaps/volwheel.png");
 	$trayicon = Gtk2::TrayIcon->new($APPNAME);
 	$tooltip= Gtk2::Tooltips->new;
 	&update_tooltip;
@@ -100,7 +100,7 @@ sub launch_mixer {
 
 sub click_handler {
 	my ($check, $event) = @_;
-	
+
 	if (1 eq $event->button) {
 		&scale_window;
 	}
@@ -117,7 +117,7 @@ sub click_handler {
 
 sub scroll_handler {
 	my ($check, $event) = @_;
-	
+
 	if ("up" eq $event->direction) {
 		&volup;
 		&update_tooltip;
@@ -134,16 +134,16 @@ sub popup {
 	my $item_about = Gtk2::ImageMenuItem->new_from_stock('gtk-about');
 	my $item_separ = Gtk2::SeparatorMenuItem->new;
 	my $item_quit  = Gtk2::ImageMenuItem->new_from_stock('gtk-quit');
-	
+
 	$item_prefs->signal_connect('activate', \&config_dialog);
 	$item_about->signal_connect('activate', \&about_dialog);
 	$item_quit->signal_connect('activate', \&out);
-	
+
 	$menu->add($item_prefs);
 	$menu->add($item_about);
 	$menu->add($item_separ);
 	$menu->add($item_quit);
-	
+
 	$menu->show_all;
 	$menu->popup(undef, undef, undef, undef, 0, 0);
 }
@@ -183,9 +183,9 @@ sub config_dialog {
 	$winconf->set_border_width(10);
 	$winconf->set_position('center');
 	$winconf->set_destroy_with_parent(0);
-	
+
 	my $vbox = Gtk2::VBox->new(1, 5);
-	
+
 	my $hbox1 = Gtk2::HBox->new(0, 2);
 	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
@@ -196,7 +196,7 @@ sub config_dialog {
 	$hbox1->pack_end($entry_channel, 0, 0, 5);
 	$hbox1->show;
 	$vbox->pack_start($hbox1, 0, 0, 0);
-	
+
 	my $hbox2 = Gtk2::HBox->new(0, 2);
 	my $lbl_mixer = Gtk2::Label->new("Default mixer");
 	my $entry_mixer = Gtk2::Entry->new;
@@ -207,7 +207,7 @@ sub config_dialog {
 	$hbox2->pack_end($entry_mixer, 0, 0, 5);
 	$hbox2->show;
 	$vbox->pack_start($hbox2, 0, 0, 0);
-	
+
 	my $hbox22 = Gtk2::HBox->new(0, 2);
 	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
 	my $spin_incr = Gtk2::SpinButton->new_with_range(1, 99, 1);
@@ -218,7 +218,7 @@ sub config_dialog {
 	$hbox22->pack_end($spin_incr, 0, 0, 5);
 	$hbox22->show;
 	$vbox->pack_start($hbox22, 0, 0, 0);
-	
+
 	my $hbox3 = Gtk2::HBox->new(0, 2);
 	my $btn_cancel = Gtk2::Button->new_from_stock('gtk-cancel');
 	$btn_cancel->signal_connect(clicked => sub { $winconf->destroy });
@@ -249,29 +249,29 @@ sub scale_window {
 	$winscale->set_border_width(10);
 	$winscale->set_position('mouse');
 	$winscale->signal_connect('focus-out-event' => sub{ $winscale->destroy });
-	
+
 	my $vbox = Gtk2::VBox->new(0, 4);
-	
+
 	my $btn_mixer = Gtk2::Button->new_with_label("Mixer");
 	$btn_mixer->signal_connect(clicked => \&launch_mixer);
 	$vbox->pack_start($btn_mixer, 0, 0, 0);
-	
+
 	my $separator = Gtk2::HSeparator->new;
 	$vbox->pack_start($separator, 0, 0, 0);
-	
+
 	my $scale = Gtk2::VScale->new_with_range(0, 100, 1);
 	$scale->set_digits(0);
 	$scale->set_value_pos('bottom');
 	$scale->set_inverted(1);
 	$scale->set_size_request(0, 120);
 	$scale->set_value(&get_volume);
-	$scale->signal_connect('value-changed' => sub { 
+	$scale->signal_connect('value-changed' => sub {
 		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null"); });
 	$vbox->pack_start($scale, 0, 0, 0);
-	
+
 	my $label = Gtk2::Label->new($opt{channel});
 	$vbox->pack_start($label, 0, 0, 0);
-	
+
 	$winscale->add($vbox);
 	$winscale->show_all;
 	$winscale->set_focus;

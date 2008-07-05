@@ -2,7 +2,7 @@ VolWheel
 
 For help on how to use VolWheel, type 'volwheel --help'.
 
-You can track this software on http://oliwer.net/weblog/
+You can track this software on http://oliwer.net/
 
 
 Requierements
@@ -13,6 +13,5 @@ Requierements
 
 Installation
  * Copy volwheel somewhere in your path
- * Launch it
- * Configure it
- * Profit !!!
+ * Copy volwheel.png in /usr/share/pixmaps/
+ * You're done.
