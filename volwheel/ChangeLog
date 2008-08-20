@@ -1,3 +1,8 @@
+2008-08-20 - v0.2.5
+ * Added a dynamic icon mode with icon themes support
+ * Added new icons inside the package
+ * Lots of code rewrite
+
 2008-07-05 - v0.2.4
  * Included volwheel's icon inside the package in order to
    avoid the gnome-icon-theme dependency
