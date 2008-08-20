@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # VolWheel - set the volume with your mousewheel
-# Author : Olivier Duclos <oliwer@free.fr>
+# Author : Olivier Duclos <olivier.duclos gmail.com>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,18 +19,21 @@
 
 use strict;
 use warnings;
-use vars qw/%opt $tooltip $trayicon/;
+use Switch;
+use Gtk2 '-init';
+use Gtk2::TrayIcon;
+use vars qw/%opt $tooltip $trayicon $icon $eventbox/;
 
 our $APPNAME = "VolWheel";
-our $VERSION = "0.2.4"; # 2008.07.05
+our $VERSION = "0.2.5"; # 2008.08.20
 
 # M A I N #
 
 &get_conf;
 
+
 if (defined(@ARGV)) {
 	# command line
-	use Switch;
 	switch ($ARGV[0]) {
 		case ["-h", "--help"]		{&usage}
 		case ["-v", "--version"]	{&version}
@@ -43,17 +46,14 @@ if (defined(@ARGV)) {
 }
 else {
 	# Tray icon
-	use Gtk2 '-init';
-	use Gtk2::TrayIcon;
-	my $icon = Gtk2::Image->new_from_file("/usr/share/pixmaps/volwheel.png");
 	$trayicon = Gtk2::TrayIcon->new($APPNAME);
+	$icon = Gtk2::Image->new;
 	$tooltip= Gtk2::Tooltips->new;
-	&update_tooltip;
-	my $eventbox = Gtk2::EventBox->new;
-	   $eventbox->add($icon);
+	$eventbox = Gtk2::EventBox->new;
 	   $eventbox->signal_connect('button_release_event', \&click_handler);
 	   $eventbox->signal_connect('scroll_event', \&scroll_handler);
-	   $eventbox->signal_connect('enter_notify_event', \&update_tooltip);
+	   $eventbox->signal_connect('enter_notify_event', \&update_icon);
+	&update_icon(1);
 	$trayicon->add($eventbox);
 	$trayicon->show_all;
 	Gtk2->main;
@@ -110,22 +110,16 @@ sub click_handler {
 		}
 		else {
 			&mute;
-			&update_tooltip;
+			&update_icon;
 		}
 	}
 }
 
 sub scroll_handler {
 	my ($check, $event) = @_;
-
-	if ("up" eq $event->direction) {
-		&volup;
-		&update_tooltip;
-	}
-	else {
-		&voldown;
-		&update_tooltip;
-	}
+	if ("up" eq $event->direction) { &volup; }
+	else { &voldown; }
+	&update_icon;
 }
 
 sub popup {
@@ -149,18 +143,27 @@ sub popup {
 }
 
 sub get_conf {
+	# Default configuration
 	$opt{channel} = "PCM";
 	$opt{mixer} = "xterm -e 'alsamixer'";
 	$opt{incr} = 3;
+	$opt{theme} = "simple-blue";
+	$opt{iconpath} = "/usr/share/volwheel/icons/volwheel.png";
+	$opt{static} = 1;
+
+	# Read the configuration file
 	if (-w "$ENV{HOME}/.config/volwheel") {
 		open (CONFIG, "$ENV{HOME}/.config/volwheel");
 		my @config = <CONFIG>;
 		if ($config[0]) { $opt{channel} = $config[0]; }
 		if ($config[1]) { $opt{mixer} = $config[1]; }
 		if ($config[2] && $config[2] =~ /^\d+$/) { $opt{incr} = $config[2]; }
-		chomp($opt{channel});
-		chomp($opt{mixer});
-		chomp($opt{incr});
+		if ($config[3] && $config[3] ne "") { $opt{theme} = $config[3]; }
+		if ($config[4] && $config[4] ne "") { $opt{iconpath} = $config[4]; }
+		if ($config[5] && $config[5] =~ /^(0|1)$/) { $opt{static} = $config[5]; }
+		foreach (values %opt) {
+			chomp $_;
+		}
 		close CONFIG;
 	}
 	else {
@@ -172,74 +175,151 @@ sub get_conf {
 
 sub save_config {
 	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
-	open (CONFIG, ">$ENV{HOME}/.config/volwheel") or die "Error : Cannot open/create configuration file\n";
-	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n";
+	open (CONFIG, ">$ENV{HOME}/.config/volwheel")
+		or die "Error : Cannot open/create configuration file\n";
+	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n"
+			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n";
 	close CONFIG;
 }
 
 sub config_dialog {
+	# Globals to this sub
+	my $filechooser = Gtk2::FileChooserButton->new("Choose a file", 'open');
+	my $combo_theme = Gtk2::ComboBox->new_text;
+
+
 	my $winconf = Gtk2::Window->new('toplevel');
 	$winconf->set_title("$APPNAME Settings");
 	$winconf->set_border_width(10);
 	$winconf->set_position('center');
 	$winconf->set_destroy_with_parent(0);
 
-	my $vbox = Gtk2::VBox->new(1, 5);
+	my $vbox = Gtk2::VBox->new(0, 5);
+
+
+	my $frame_sound = Gtk2::Frame->new("Sound");
+	my $vbox1 = Gtk2::VBox->new(1, 5);
 
 	my $hbox1 = Gtk2::HBox->new(0, 2);
 	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
 	$entry_channel->set_text($opt{channel});
-	$lbl_channel->show;
-	$entry_channel->show;
 	$hbox1->pack_start($lbl_channel, 0, 0, 5);
 	$hbox1->pack_end($entry_channel, 0, 0, 5);
-	$hbox1->show;
-	$vbox->pack_start($hbox1, 0, 0, 0);
+	$vbox1->add($hbox1);
 
 	my $hbox2 = Gtk2::HBox->new(0, 2);
 	my $lbl_mixer = Gtk2::Label->new("Default mixer");
 	my $entry_mixer = Gtk2::Entry->new;
 	$entry_mixer->set_text($opt{mixer});
-	$lbl_mixer->show;
-	$entry_mixer->show;
 	$hbox2->pack_start($lbl_mixer, 0, 0, 5);
 	$hbox2->pack_end($entry_mixer, 0, 0, 5);
-	$hbox2->show;
-	$vbox->pack_start($hbox2, 0, 0, 0);
+	$vbox1->add($hbox2);
 
-	my $hbox22 = Gtk2::HBox->new(0, 2);
+	my $hbox3 = Gtk2::HBox->new(0, 2);
 	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
 	my $spin_incr = Gtk2::SpinButton->new_with_range(1, 99, 1);
 	$spin_incr->set_value($opt{incr});
-	$lbl_incr->show;
-	$spin_incr->show;
-	$hbox22->pack_start($lbl_incr, 0, 0, 5);
-	$hbox22->pack_end($spin_incr, 0, 0, 5);
-	$hbox22->show;
-	$vbox->pack_start($hbox22, 0, 0, 0);
+	$hbox3->pack_start($lbl_incr, 0, 0, 5);
+	$hbox3->pack_end($spin_incr, 0, 0, 5);
+	$vbox1->add($hbox3);
 
-	my $hbox3 = Gtk2::HBox->new(0, 2);
+	$frame_sound->add($vbox1);
+	$vbox->add($frame_sound);
+
+
+	my $frame_icons = Gtk2::Frame->new("Icons");
+	my $vbox2 = Gtk2::VBox->new(1, 5);
+
+	my $hbox4 = Gtk2::HBox->new(0, 2);
+	my $lbl_icomod = Gtk2::Label->new("Icon Mode");
+	my $radio_stc = Gtk2::RadioButton->new_with_label(undef, "Static");
+	   $radio_stc->signal_connect('toggled' => sub {
+					$filechooser->set_sensitive(1);
+					$combo_theme->set_sensitive(0);
+					$opt{static} = 1;
+					&update_icon;
+					});
+	my $radio_dyn = Gtk2::RadioButton->new_with_label($radio_stc, "Dynamic");
+	   $radio_dyn->signal_connect('toggled' => sub {
+					$filechooser->set_sensitive(0);
+					$combo_theme->set_sensitive(1);
+					$opt{static} = 0;
+					&update_icon;
+					});
+	if ($opt{static} == 1) {
+		$radio_stc->set_active(1);
+		$radio_dyn->set_active(0);
+	}
+	else {
+		$radio_dyn->set_active(1);
+		$radio_stc->set_active(0);
+	}
+	$hbox4->pack_start($lbl_icomod, 0, 0, 5);
+	$hbox4->pack_end($radio_stc, 0, 0, 5);
+	$hbox4->pack_end($radio_dyn, 0, 0, 5);
+	$vbox2->add($hbox4);
+
+	my $hbox5 = Gtk2::HBox->new(0, 2);
+	my $lbl_static = Gtk2::Label->new("Static icon path");
+	$filechooser->select_filename($opt{iconpath});
+	$filechooser->set_width_chars(12);
+	if ($opt{static} != 1) { $filechooser->set_sensitive(0); }
+	$filechooser->signal_connect('file-set' => sub {
+			$opt{iconpath} = $filechooser->get_filename;
+			&update_icon;
+			});
+	$hbox5->pack_start($lbl_static, 0, 0, 5);
+	$hbox5->pack_end($filechooser, 0, 0, 5);
+	$vbox2->add($hbox5);
+
+	my $hbox6 = Gtk2::HBox->new(0, 2);
+	my $lbl_icothm= Gtk2::Label->new("Icon theme");
+	$combo_theme->append_text($opt{theme});
+	opendir(DIR, "/usr/share/volwheel/icons")
+		or die ("Cannot open themes directory\n");
+	my @theme_list = grep !/^\.\.?$/, readdir DIR;
+	closedir(DIR);
+	my $theme = undef;
+	foreach $theme (@theme_list) {
+		if (($theme ne $opt{theme}) and
+		 (-d "/usr/share/volwheel/icons/$theme")) {
+			$combo_theme->append_text($theme);
+		}
+	}
+	$combo_theme->set_active(0);
+	if ($opt{static} == 1) { $combo_theme->set_sensitive(0); }
+	$combo_theme->signal_connect('changed' => sub {
+			$opt{theme} = $combo_theme->get_active_text;
+			&update_icon;
+			});
+	$hbox6->pack_start($lbl_icothm, 0, 0, 5);
+	$hbox6->pack_end($combo_theme, 0, 0, 5);
+	$vbox2->add($hbox6);
+
+	$frame_icons->add($vbox2);
+	$vbox->add($frame_icons);
+
+
+	my $hbox7 = Gtk2::HBox->new(0, 2);
 	my $btn_cancel = Gtk2::Button->new_from_stock('gtk-cancel');
-	$btn_cancel->signal_connect(clicked => sub { $winconf->destroy });
+	$btn_cancel->signal_connect('clicked' => sub { $winconf->destroy });
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
-						  $opt{channel} = $entry_channel->get_text;
-						  $opt{mixer} = $entry_mixer->get_text;
-						  $opt{incr} = $spin_incr->get_value_as_int;
-						  &save_config;
-						  $winconf->destroy;
-						 });
-	$btn_cancel->show;
-	$btn_save->show;
-	$hbox3->pack_start($btn_cancel, 0, 0, 5);
-	$hbox3->pack_end($btn_save, 0, 0, 5);
-	$hbox3->show;
-	$vbox->pack_start($hbox3, 0, 0, 0);
+			  $opt{channel} = $entry_channel->get_text;
+			  $opt{mixer} = $entry_mixer->get_text;
+			  $opt{incr} = $spin_incr->get_value_as_int;
+			  $opt{iconpath} = $filechooser->get_filename;
+			  $opt{theme} = $combo_theme->get_active_text;
+			  &save_config;
+			  $winconf->destroy;
+			 });
+	$hbox7->add($btn_cancel);
+	$hbox7->add($btn_save);
+	$vbox->add($hbox7);
 
-	$vbox->show;
 	$winconf->add($vbox);
-	$winconf->show;
+	$winconf->show_all;
 }
 
 sub scale_window {
@@ -290,8 +370,41 @@ sub get_volume {
 	return $percent;
 }
 
-sub update_tooltip {
+sub update_icon {
+	my $first_run = shift;
 	my $volume = &get_volume;
+	if ($opt{static} == 0) {
+		my $icon_number = &get_icon_number($volume);
+		$icon->set_from_file("/usr/share/volwheel/icons/$opt{theme}/$icon_number.png");
+ 		if ($first_run == 1) {
+ 			$eventbox->add($icon);
+ 		}
+	}
+	else {
+		$icon->set_from_file($opt{iconpath});
+ 		if ($first_run == 1) {
+ 			$eventbox->add($icon);
+ 		}
+	}
+	&update_tooltip($volume);
+}
+
+sub get_icon_number {
+	my $volume = shift;
+	switch ($volume) {
+		case 0		{ return 1 }
+		case [1..16]	{ return 2 }
+		case [17..33]	{ return 3 }
+		case [34..50]	{ return 4 }
+		case [51..67]	{ return 5 }
+		case [68..84]	{ return 6 }
+		case [85..99]	{ return 7 }
+		case 100	{ return 8 }
+	}
+}
+
+sub update_tooltip {
+	my $volume = shift;
 	$tooltip->set_tip($trayicon, "$opt{channel} : $volume%");
 }
 
@@ -305,8 +418,8 @@ sub about_dialog {
 	$about->set_program_name($APPNAME);
 	$about->set_version($VERSION);
 	$about->set_copyright("Copyright (c) Olivier Duclos 2008");
-	$about->set_comments("Set volume with the mousewheel");
-	$about->set_website("http://oliwer.net/weblog/");
+	$about->set_comments("Set the volume with your mousewheel");
+	$about->set_website("http://oliwer.net/");
 	$about->run;
 	$about->destroy;
 }
@@ -331,14 +444,13 @@ Trayicon usage :
   * left click         launch a mixer software (alsamixer by default)
   * right click        menu to access to the configuration panel
   * middle click       mute or unmute
-
 ";
 }
 
 sub version {
 print "$APPNAME version $VERSION
 Copyright (c) Olivier Duclos 2008.
-http://oliwer.net/weblog/
+http://oliwer.net/
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
