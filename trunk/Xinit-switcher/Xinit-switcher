@@ -96,7 +96,7 @@ sub getDefault
     else {
       $defaultChoice = 0;
     }
-    
+
     return $defaultChoice;
 }
 
@@ -120,7 +120,7 @@ sub decount # doesn't work. We use autoRun() instead.
 
 sub centerWindow {
     my($window, $width, $height) = @_;
-    
+
     $window->idletasks;
     $width = $window->reqwidth unless $width;
     $height = $window->reqheight unless $height;

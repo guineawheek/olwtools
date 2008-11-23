@@ -1,0 +1,11 @@
+pRadius - Installation intructions
+=======================================================================
+
+There is no makefile for now. This will be arrenged in later versions.
+
+3-steps installation :
+ - copy pRadius.pm in /usr/lib/perl5
+ - copy radius.cgi in your cgi-bin directory and chmod +x it.
+ - set suid to redius.cgi
+
+I strongly advise to protect radius.cgi with an .htaccess file.

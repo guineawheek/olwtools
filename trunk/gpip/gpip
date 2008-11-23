@@ -1,5 +1,0 @@
-#!/usr/bin/perl -w   #coding: utf-8
-
-use gpip ;
-
-Gtk2->main ;

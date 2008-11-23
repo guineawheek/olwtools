@@ -1,0 +1,158 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>pRadius - Perl module for basic users management with FreeRadius.</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#requires">REQUIRES</a></li>
+	<li><a href="#exports">EXPORTS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#functions">FUNCTIONS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>pRadius - Perl module for basic users management with FreeRadius.</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
+  use pRadius;</pre>
+<pre>
+  my $RADDB = '/etc/freeradius/users';</pre>
+<pre>
+  # Get the list of all users
+  my @usersList = @{pRadius::listUsers($RADDB)};</pre>
+<pre>
+  # Add a new user
+  pRadius::addUser($user, $comment, $authType, $pass, $srvcType, $RADDB);</pre>
+<p>
+</p>
+<hr />
+<h1><a name="requires">REQUIRES</a></h1>
+<p>Perl5.004</p>
+<p>
+</p>
+<hr />
+<h1><a name="exports">EXPORTS</a></h1>
+<p>Nothing</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>This module is capable of creating, removing, getting information on a specified user, plus : getting a list of all users and getting logs for a specified date.</p>
+<p><strong>Be careful !</strong> This module has been written for parsing files that respect the following syntax :</p>
+<pre>
+  # Comment line
+  userName  Auth-Type := Local, User-Password == &quot;password&quot;
+    Service-Type = Callback-login-user,</pre>
+<p>Notice there is a tabulation between userName and auth-type, and another one before Service-Type.
+If your user file does not strictly respect this syntax, pRadius may not work properly. You can even lose important informations if you use the <a href="#item_deluser"><code>delUser()</code></a> function (delete user).
+So <strong>WATCH OUT !</strong></p>
+<p>
+</p>
+<hr />
+<h1><a name="functions">FUNCTIONS</a></h1>
+<p>Remember that in all the following functions, there are no default value for the arguments. Never. I strongly recommand you not to forget any argument in your function calls ;)
+<code>$RADDB</code> is the location of your freeradius user file. Generaly <code>/etc/freeradius/users</code>.</p>
+<dl>
+<dt><strong><a name="item_add">pRadius::add ($userName, $comment, $authType, $userPass,
+                    $srvcType, $RADDB)</a></strong>
+
+<dd>
+<p>An easy way to add a new user in your file. <code>$srvcType</code> stands for ``Service-Type''. This function returns true or false.</p>
+</dd>
+</li>
+<dt><strong><a name="item_listusers">pRadius::listUsers ($RADDB)</a></strong>
+
+<dd>
+<p>Returns a reference to an array with the name of all users.</p>
+</dd>
+</li>
+<dt><strong><a name="item_deluser">pRadius::delUser ($userName, $RADDB)</a></strong>
+
+<dd>
+<p>Delete the specified user. Returns true or false. I hope that you respect the syntax for the users file that I told you upper.</p>
+</dd>
+</li>
+<dt><strong><a name="item_getuser">pRadius::getUser ($userName, $RADDB)</a></strong>
+
+<dd>
+<p>Returns a reference to an array containing the user's name, the user's password and the comments for this user.</p>
+</dd>
+</li>
+<dt><strong><a name="item_testuser">pRadius::testUser ($userName, $RADDB)</a></strong>
+
+<dd>
+<p>Checks if a user is present in the file. Returns true or false.</p>
+</dd>
+</li>
+<dt><strong><a name="item_moduser">pRadius::modUser ($userName, $comment, $authType, $userPass,
+                        $srvcType, $RADDB)</a></strong>
+
+<dd>
+<p>This function will delete the specified user from the file and the recreate him with the new given values.</p>
+</dd>
+</li>
+<dt><strong><a name="item_getlogs">pRadius::getLogs ($RADACCT, $date)</a></strong>
+
+<dd>
+<p><code>$RADACCT</code> is the path to your freeeadius logs directory. Probably <code>/var/log/freeradius/radacct/</code> (do not forget the / at the end).
+<code>$date</code> is the date of the log file you want to see. it is written following this pattern : YYYYMMDD (i.e 20060413).
+The function will return a reference to an array containing the logs, ready to print on the screen.</p>
+</dd>
+</li>
+<dt><strong><a name="item_apply">pRadius::apply ($command)</a></strong>
+
+<dd>
+<p>To be aware of the changes you have done on the freeradius users file, the freeradius server have to be restarted. That is the goal of this function.
+<code>$command</code> is the command line that needs to be executed. It should be something like this : <code>/etc/init.d/freeradius restart</code>. Of course, you need to be root to do a such thing.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>Implement something to check if the users file syntax is correct.</p>
+<p>Translations.</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>Not yet...</p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2006 Olivier Duclos. All rights reserved.</p>
+<p>This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Olivier Duclos <code>olivierduclos@oliwer.net</code></p>
+
+</body>
+
+</html>
