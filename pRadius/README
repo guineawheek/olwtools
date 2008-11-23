@@ -1,0 +1,100 @@
+NAME
+    pRadius - Perl module for basic users management with FreeRadius.
+
+SYNOPSIS
+      use pRadius;
+
+      my $RADDB = '/etc/freeradius/users';
+
+      # Get the list of all users
+      my @usersList = @{pRadius::listUsers($RADDB)};
+
+      # Add a new user
+      pRadius::addUser($user, $comment, $authType, $pass, $srvcType, $RADDB);
+
+REQUIRES
+    Perl5.004
+
+EXPORTS
+    Nothing
+
+DESCRIPTION
+    This module is capable of creating, removing, getting information on a
+    specified user, plus : getting a list of all users and getting logs for
+    a specified date.
+
+    Be careful ! This module has been written for parsing files that respect
+    the following syntax :
+
+      # Comment line
+      userName  Auth-Type := Local, User-Password == "password"
+        Service-Type = Callback-login-user,
+
+    Notice there is a tabulation between userName and auth-type, and another
+    one before Service-Type. If your user file does not strictly respect
+    this syntax, pRadius may not work properly. You can even lose important
+    informations if you use the delUser() function (delete user). So WATCH
+    OUT !
+
+FUNCTIONS
+    Remember that in all the following functions, there are no default value
+    for the arguments. Never. I strongly recommand you not to forget any
+    argument in your function calls ;) $RADDB is the location of your
+    freeradius user file. Generaly "/etc/freeradius/users".
+
+    pRadius::add ($userName, $comment, $authType, $userPass, $srvcType,
+    $RADDB)
+        An easy way to add a new user in your file. $srvcType stands for
+        "Service-Type". This function returns true or false.
+
+    pRadius::listUsers ($RADDB)
+        Returns a reference to an array with the name of all users.
+
+    pRadius::delUser ($userName, $RADDB)
+        Delete the specified user. Returns true or false. I hope that you
+        respect the syntax for the users file that I told you upper.
+
+    pRadius::getUser ($userName, $RADDB)
+        Returns a reference to an array containing the user's name, the
+        user's password and the comments for this user.
+
+    pRadius::testUser ($userName, $RADDB)
+        Checks if a user is present in the file. Returns true or false.
+
+    pRadius::modUser ($userName, $comment, $authType, $userPass, $srvcType,
+    $RADDB)
+        This function will delete the specified user from the file and the
+        recreate him with the new given values.
+
+    pRadius::getLogs ($RADACCT, $date)
+        $RADACCT is the path to your freeeadius logs directory. Probably
+        "/var/log/freeradius/radacct/" (do not forget the / at the end).
+        $date is the date of the log file you want to see. it is written
+        following this pattern : YYYYMMDD (i.e 20060413). The function will
+        return a reference to an array containing the logs, ready to print
+        on the screen.
+
+    pRadius::apply ($command)
+        To be aware of the changes you have done on the freeradius users
+        file, the freeradius server have to be restarted. That is the goal
+        of this function. $command is the command line that needs to be
+        executed. It should be something like this : "/etc/init.d/freeradius
+        restart". Of course, you need to be root to do a such thing.
+
+TODO
+    Implement something to check if the users file syntax is correct.
+
+    Translations.
+
+BUGS
+    Not yet...
+
+COPYRIGHT
+    Copyright (c) 2006 Olivier Duclos. All rights reserved.
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+AUTHOR
+    Olivier Duclos "olivierduclos@oliwer.net"
+

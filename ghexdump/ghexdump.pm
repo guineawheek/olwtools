@@ -128,7 +128,8 @@ sub on_characterhexa1_activate {
 
 sub on_A_propos1_activate {
     my $about_box = $gladexml->get_widget('aboutdialog1') ;
-     $about_box->show ;
+     $about_box->run ;
+     $about_box->destroy;
 }
 
 # -------------------------

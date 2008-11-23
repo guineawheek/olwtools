@@ -1,0 +1,100 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use Switch;
+use Gtk2 '-init';
+
+
+# M A I N
+
+# Globals
+our $MODE  = "CPU";
+our $LEVEL = 1;
+our $VALUE = 0;
+our $TRAY  = Gtk2::StatusIcon->new;
+
+# Icons list
+my %icon = (
+		1 => 'icons/tl1.png',
+		2 => 'icons/tl2.png',
+		3 => 'icons/tl3.png',
+		4 => 'icons/tl4.png',
+		5 => 'icons/tl5.png',
+		6 => 'icons/tl6.png',
+		7 => 'icons/tl7.png',
+		8 => 'icons/tl8.png'
+           );
+
+# The tray icon
+$TRAY->set_from_file($icon{$LEVEL});
+$TRAY->set_tooltip("TrayLoad");
+$TRAY->signal_connect('activate' => \&launch_manager);
+
+# the refresh loop
+my $loop = Glib::Timeout->add_seconds(2, \&update_icon);
+
+# some vars for the cpu check
+my $lasttotal = undef;
+my $lastload = undef;
+
+Gtk2->main;
+
+
+
+# S U B S
+
+sub update_icon {
+	switch ($MODE) {
+		case "CPU"	{ &check_cpu }
+		case "RAM"	{ &check_ram }
+		case "NET"	{ &check_net }
+	}
+	&set_level;
+	$TRAY->set_from_file($icon{$LEVEL});
+	$TRAY->set_tooltip("$MODE : $VALUE%");
+	return 1;
+}
+
+sub check_cpu {
+	# Thanks to Premek Vyhnal <premysl.vyhnal gmail.com> for this code
+	open (STAT, "/proc/stat") or die ("Cannot open /proc/stat");
+	seek STAT,0,0;
+	<STAT> =~ m/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+).*$/;
+	close STAT;
+
+        my $load = $1+$2+$3;
+        my $total = $load+$4+$5+$6+$7;
+
+        unless (defined $lasttotal){ $VALUE=0; }
+        elsif (($total - $lasttotal) <= 0){ $VALUE=100; } # bez tohohle to obcas zdechne ;)
+        else { $VALUE = int((100 * ($load - $lastload))/($total - $lasttotal)); }
+
+        ($lastload, $lasttotal) = ($load,$total);
+}
+
+sub check_ram {
+	#...
+}
+
+sub check_net {
+	#...
+}
+
+sub set_level {
+	switch ($VALUE) {
+		case 0		{ $LEVEL = 1 }
+		case [1..16]	{ $LEVEL = 2 }
+		case [17..33]	{ $LEVEL = 3 }
+		case [34..50]	{ $LEVEL = 4 }
+		case [51..67]	{ $LEVEL = 5 }
+		case [68..84]	{ $LEVEL = 6 }
+		case [85..99]	{ $LEVEL = 7 }
+		case 100	{ $LEVEL = 8 }
+	}
+}
+
+sub launch_manager {
+	exec "gtaskmanager" unless fork;
+	$SIG{CHLD} = "IGNORE";
+}
