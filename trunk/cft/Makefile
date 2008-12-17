@@ -5,7 +5,7 @@ BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/man/man1
 SHAREDIR=$(PREFIX)/share/cft
 
-all: printenv
+all: printenv gendoc
 
 install:
 	install -D -m 755 cft $(BINDIR)
@@ -19,6 +19,12 @@ printenv:
 	@echo "BINDIR = $(BINDIR)"
 	@echo "MANDIR = $(MANDIR)"
 	@echo "SHAREDIR = $(SHAREDIR)"
+
+gendoc:
+	@echo -n "Genrating man page... "
+	@pod2man cft > cft.1
+	@gzip cft.1
+	@echo "done"
 
 uninstall:
 	rm $(BINDIR)/cft
