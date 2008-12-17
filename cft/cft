@@ -8,7 +8,7 @@ cft - Create From Template
 
   # This will create a new html file from the html template
   cft html document.html
-  
+
   # This will create a virgin shell script and make it executable
   cft sh script.sh x
 
@@ -39,6 +39,10 @@ This magic word will write the result of the 'date' command in your file.
 
 This writes the file name of the file you are creating.
 
+=item USER
+
+The current user name
+
 =back
 
 =head1 TODO
@@ -53,13 +57,13 @@ Not yet...
 
 =head1 COPYRIGHT
 
-Copyright (c) 2006 Olivier Duclos. All rights reserved.
+Copyright (c) 2006-2009 Olivier Duclos. All rights reserved.
 
 This is a free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =head1 AUTHOR
 
-Olivier Duclos C<olivierduclos@oliwer.net>
+Olivier Duclos C<olivier.duclos@gmail.com>
 
 =cut
 
@@ -69,7 +73,7 @@ use strict;
 use warnings;
 use Cwd;
 
-my $VERSION = 0.0.1;
+my $VERSION = 0.0.2;
 
 my $confdir = "$ENV{HOME}/.cft";
 
@@ -134,13 +138,16 @@ sub getTemplate {
 
 sub parseTemplate {
    my $text = $tmpl;
-   
+
    my $date = (`date`);
    chomp $date;
    $text =~ s/FULLDATE/$date/;
-   
+
+   my $user = $ENV{USER};
+   $text =~ s/USER/$user/;
+
    $text =~ s/FILENAME/$ARGV[1]/;
-   
+
    return $text;
 }
 
@@ -165,7 +172,7 @@ sub createFile {
 
 sub openEditor {
     if (! -f "$confdir/editor") {
-       die "Missing 'editor' configuration file.\n";
+       die "Missing $confdir/editor configuration file.\n";
     }
     open STUFF, "$confdir/editor";
     my $editor;
