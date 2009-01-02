@@ -1,3 +1,11 @@
+2009-01-01 - v0.2.6
+ * Added a timer to refresh the icon automatically
+ * Fixed several bugs in the mini-mixer (should work better on KDE)
+ * Updated help
+ * Improved command line performances
+ * Added support for spaces in channel names (no quotes required)
+ * Various bug fixes and code rewrites
+
 2008-08-20 - v0.2.5
  * Added a dynamic icon mode with icon themes support
  * Added new icons inside the package
@@ -15,7 +23,7 @@
  * Added a command line mode
  * Added the possibility to configure volume incrementation
  * Fixed the zombie bug when launching a mixer
-   (thanx to Pablo Flouret)
+   (thanks to Pablo Flouret)
  * The volume before muting in now saved
  * Some code clean up
 

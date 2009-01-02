@@ -16,43 +16,42 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use strict;
 use warnings;
 use Switch;
-use Gtk2 '-init';
-use Gtk2::TrayIcon;
+use if (@ARGV < 1),  Gtk2 => '-init';
+use if (@ARGV < 1), 'Gtk2::TrayIcon';
 use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale/;
 
-our $APPNAME = "VolWheel";
-our $VERSION = "0.2.5"; # 2008.08.20
+use constant APPNAME => "VolWheel";
+use constant VERSION => "0.2.6"; # 2009-01-01
 
 # M A I N #
 
-&get_conf;
+get_conf();
 
 if (defined(@ARGV)) {
 	# command line
 	switch ($ARGV[0]) {
-		case ["-h", "--help"]		{&usage}
-		case ["-v", "--version"]	{&version}
-		case ["-i", "--increase"]	{&volup}
-		case ["-d", "--decrease"]	{&voldown}
-		case ["-m", "--mute"]		{&mute}
-		case ["-s", "--status"]		{&status}
-		else				{&usage}
+		case ["-h", "--help"]       { usage()   }
+		case ["-v", "--version"]    { version() }
+		case ["-i", "--increase"]   { volup()   }
+		case ["-d", "--decrease"]   { voldown() }
+		case ["-m", "--mute"]       { mute()    }
+		case ["-s", "--status"]     { status()  }
+		else                        { usage()   }
 	}
 }
 else {
 	# Tray icon
-	$trayicon = Gtk2::TrayIcon->new($APPNAME);
+	$trayicon = Gtk2::TrayIcon->new(APPNAME);
 	$icon = Gtk2::Image->new;
 	$tooltip= Gtk2::Tooltips->new;
 	$eventbox = Gtk2::EventBox->new;
 	   $eventbox->signal_connect('button_release_event', \&click_handler);
 	   $eventbox->signal_connect('scroll_event', \&scroll_handler);
 	   $eventbox->signal_connect('enter_notify_event', \&update_icon);
-	&update_icon(1);
+	update_icon(1);
 	$trayicon->add($eventbox);
 	$trayicon->show_all;
 	# the refresh loop
@@ -65,32 +64,32 @@ else {
 # S U B S #
 
 sub volup {
-	system "amixer set $opt{channel} $opt{incr}%+ > /dev/null";
+	system "amixer set \"$opt{channel}\" $opt{incr}%+ > /dev/null";
 }
 
 sub voldown {
-	system "amixer set $opt{channel} $opt{incr}%- > /dev/null";
+	system "amixer set \"$opt{channel}\" $opt{incr}%- > /dev/null";
 }
 
 sub mute {
 	# fake mute
-	if (`amixer get $opt{channel} | grep pswitch` eq "")
+	if (`amixer get "$opt{channel}" | grep pswitch` eq "")
 	{
-		my $level = `amixer get $opt{channel} | grep -m1 %`;
+		my $level = `amixer get "$opt{channel}" | grep -m1 %`;
 		$level =~ s/.*\[([0-9]*)%.*/$1/;
 		chomp($level);
 		if ($level eq "0") {
 			$opt{beforemute} = 75 unless defined($opt{beforemute});
-			system "amixer set $opt{channel} $opt{beforemute}%+ > /dev/null"
+			system "amixer set \"$opt{channel}\" $opt{beforemute}%+ > /dev/null"
 		}
 		else {
 			$opt{beforemute} = $level;
-			system "amixer set $opt{channel} 100%- > /dev/null";
+			system "amixer set \"$opt{channel}\" 100%- > /dev/null";
 		}
 	}
 	# real mute
 	else {
-		system "amixer set $opt{channel} toggle > /dev/null";
+		system "amixer set \"$opt{channel}\" toggle > /dev/null";
 	}
 }
 
@@ -104,7 +103,7 @@ sub click_handler {
 
 	if (1 eq $event->button) {
 		if ($opt{show_scale} == 0) {
-			&scale_window;
+			scale_window();
 		}
 		else {
 			$winscale->destroy;
@@ -112,20 +111,20 @@ sub click_handler {
 	}
 	else {
 		if (3 eq $event->button) {
-			&popup;
+			popup();
 		}
 		else {
-			&mute;
-			&update_icon;
+			mute();
+			update_icon();
 		}
 	}
 }
 
 sub scroll_handler {
 	my ($check, $event) = @_;
-	if ("up" eq $event->direction) { &volup; }
-	else { &voldown; }
-	&update_icon;
+	if ("up" eq $event->direction) { volup(); }
+	else { voldown(); }
+	update_icon();
 }
 
 sub popup {
@@ -197,10 +196,9 @@ sub config_dialog {
 
 
 	my $winconf = Gtk2::Window->new('toplevel');
-	$winconf->set_title("$APPNAME Settings");
+	$winconf->set_title(APPNAME . " Settings");
 	$winconf->set_border_width(10);
 	$winconf->set_position('center');
-	$winconf->set_destroy_with_parent(0);
 
 	my $main_vbox = Gtk2::VBox->new(0,5);
 
@@ -208,15 +206,15 @@ sub config_dialog {
 	my $vbox = Gtk2::VBox->new(0,5);
 
 	my $frame_sound = Gtk2::Frame->new("Sound");
-	my $vbox1 = Gtk2::VBox->new(1, 5);
+	my $vbox1 = Gtk2::VBox->new(0, 10);
 
-	my $hbox1 = Gtk2::HBox->new(0, 2);
+	my $hbox1 = Gtk2::HBox->new(0, 10);
 	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
 	$entry_channel->set_text($opt{channel});
-	$hbox1->pack_start($lbl_channel, 0, 0, 5);
-	$hbox1->pack_end($entry_channel, 0, 0, 5);
-	$vbox1->add($hbox1);
+	$hbox1->pack_start($lbl_channel, 0, 1, 5);
+	$hbox1->pack_end($entry_channel, 0, 1, 5);
+	$vbox1->pack_start($hbox1, 0, 1, 2);
 
 	my $hbox2 = Gtk2::HBox->new(0, 2);
 	my $lbl_mixer = Gtk2::Label->new("Default mixer");
@@ -224,7 +222,7 @@ sub config_dialog {
 	$entry_mixer->set_text($opt{mixer});
 	$hbox2->pack_start($lbl_mixer, 0, 0, 5);
 	$hbox2->pack_end($entry_mixer, 0, 0, 5);
-	$vbox1->add($hbox2);
+	$vbox1->pack_start($hbox2, 1, 0, 2);
 
 	my $hbox3 = Gtk2::HBox->new(0, 2);
 	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
@@ -232,14 +230,14 @@ sub config_dialog {
 	$spin_incr->set_value($opt{incr});
 	$hbox3->pack_start($lbl_incr, 0, 0, 5);
 	$hbox3->pack_end($spin_incr, 0, 0, 5);
-	$vbox1->add($hbox3);
+	$vbox1->pack_start($hbox3, 1, 0, 5);
 
 	$frame_sound->add($vbox1);
-	$vbox->add($frame_sound);
+	$vbox->pack_start($frame_sound, 1, 0, 5);
 
 
 	my $frame_icons = Gtk2::Frame->new("Icons");
-	my $vbox2 = Gtk2::VBox->new(1, 5);
+	my $vbox2 = Gtk2::VBox->new(0, 10);
 
 	my $hbox4 = Gtk2::HBox->new(0, 2);
 	my $lbl_icomod = Gtk2::Label->new("Icon Mode");
@@ -248,14 +246,14 @@ sub config_dialog {
 					$filechooser->set_sensitive(1);
 					$combo_theme->set_sensitive(0);
 					$opt{static} = 1;
-					&update_icon;
+					update_icon();
 					});
 	my $radio_dyn = Gtk2::RadioButton->new_with_label($radio_stc, "Dynamic");
 	   $radio_dyn->signal_connect('toggled' => sub {
 					$filechooser->set_sensitive(0);
 					$combo_theme->set_sensitive(1);
 					$opt{static} = 0;
-					&update_icon;
+					update_icon();
 					});
 	if ($opt{static} == 1) {
 		$radio_stc->set_active(1);
@@ -277,7 +275,7 @@ sub config_dialog {
 	if ($opt{static} != 1) { $filechooser->set_sensitive(0); }
 	$filechooser->signal_connect('file-set' => sub {
 			$opt{iconpath} = $filechooser->get_filename;
-			&update_icon;
+			update_icon();
 			});
 	$hbox5->pack_start($lbl_static, 0, 0, 5);
 	$hbox5->pack_end($filechooser, 0, 0, 5);
@@ -287,7 +285,7 @@ sub config_dialog {
 	my $lbl_icothm= Gtk2::Label->new("Icon theme");
 	$combo_theme->append_text($opt{theme});
 	opendir(DIR, "/usr/share/volwheel/icons")
-		or die ("Cannot open themes directory\n");
+		or die ("Cannot open themes directory : /usr/share/volwheel/icons\n");
 	my @theme_list = grep !/^\.\.?$/, readdir DIR;
 	closedir(DIR);
 	my $theme = undef;
@@ -301,34 +299,34 @@ sub config_dialog {
 	if ($opt{static} == 1) { $combo_theme->set_sensitive(0); }
 	$combo_theme->signal_connect('changed' => sub {
 			$opt{theme} = $combo_theme->get_active_text;
-			&update_icon;
+			update_icon();
 			});
 	$hbox6->pack_start($lbl_icothm, 0, 0, 5);
 	$hbox6->pack_end($combo_theme, 0, 0, 5);
-	$vbox2->add($hbox6);
+	$vbox2->pack_end($hbox6, 1, 0, 5);
 
 	$frame_icons->add($vbox2);
-	$vbox->add($frame_icons);
+	$vbox->pack_start($frame_icons, 1, 0, 5);
 	# END OF FIRST TAB
 
 	# START SECOND TAB
-	my $tab2_vbox = Gtk2::VBox->new(0,2);
-	my $label = Gtk2::Label->new("Hahaha");
-	$tab2_vbox->add($label);
+	#my $tab2_vbox = Gtk2::VBox->new(0,2);
+	#my $label = Gtk2::Label->new("Hahaha");
+	#$tab2_vbox->add($label);
 	# END OF SECOND TAB
 
 	# START THIRD TAB
-	my $tab3_vbox = Gtk2::VBox->new(0,2);
-	my $label2 = Gtk2::Label->new("In your dreams !");
-	$tab3_vbox->add($label2);
+	#my $tab3_vbox = Gtk2::VBox->new(0,2);
+	#my $label2 = Gtk2::Label->new("In your dreams !");
+	#$tab3_vbox->add($label2);
 	# END OF THIRD TAB
 
 	# The NOTEBOOK
 	my $notebook = Gtk2::Notebook->new;
 	$notebook->append_page($vbox, "General");
-	$notebook->append_page($tab2_vbox, "MiniMixer");
-	$notebook->append_page($tab3_vbox, "Mouse Bindings");
-	$main_vbox->add($notebook);
+	#$notebook->append_page($tab2_vbox, "MiniMixer");
+	#$notebook->append_page($tab3_vbox, "Mouse Bindings");
+	$main_vbox->pack_start($notebook, 1, 0, 5);
 	##
 
 	# BOTTOM
@@ -337,17 +335,19 @@ sub config_dialog {
 	$btn_cancel->signal_connect('clicked' => sub { $winconf->destroy });
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
+			  if ( ($entry_channel->get_text) eq "" ) { return 666; }
 			  $opt{channel}  = $entry_channel->get_text;
+			  $opt{channel}  =~ s/^"(.*)"$/$1/; # No quotes !
 			  $opt{mixer}    = $entry_mixer->get_text;
 			  $opt{incr}     = $spin_incr->get_value_as_int;
 			  $opt{iconpath} = $filechooser->get_filename;
 			  $opt{theme}    = $combo_theme->get_active_text;
-			  &save_config;
+			  save_config();
 			  $winconf->destroy;
 			 });
 	$hbox_bottom->add($btn_cancel);
 	$hbox_bottom->add($btn_save);
-	$main_vbox->add($hbox_bottom);
+	$main_vbox->pack_start($hbox_bottom, 1, 0, 5);
 	# END OF BOTTOM
 
 	$winconf->add($main_vbox);
@@ -357,6 +357,9 @@ sub config_dialog {
 sub scale_window {
 	$winscale = Gtk2::Window->new('toplevel');
 	$winscale->set_type_hint('popup-menu');
+	$winscale->set_keep_above(1);
+	$winscale->set_skip_taskbar_hint(1);
+	$winscale->set_modal(1);
 	$winscale->set_decorated(0);
 	$winscale->set_border_width(10);
 	$winscale->set_position('mouse');
@@ -381,10 +384,10 @@ sub scale_window {
 	$scale->set_value_pos('bottom');
 	$scale->set_inverted(1);
 	$scale->set_size_request(0, 120);
-	$scale->set_value(&get_volume);
+	$scale->set_value( get_volume() );
 	$scale->signal_connect('value-changed' => sub {
-		system("amixer set $opt{channel} " . $scale->get_value . "% > /dev/null");
-		&update_icon;
+		system("amixer set \"$opt{channel}\" " . $scale->get_value() . "% > /dev/null");
+		update_icon();
 		});
 	$vbox->pack_start($scale, 0, 0, 0);
 
@@ -393,7 +396,7 @@ sub scale_window {
 
 	$winscale->add($vbox);
 	$winscale->show_all;
-	$winscale->set_focus;
+	$winscale->set_focus($scale);
 	$opt{show_scale} = 1;
 }
 
@@ -401,11 +404,11 @@ sub get_volume {
 	my $lchannel = shift(@_);
 	unless (defined($lchannel)) {$lchannel = $opt{channel}; }
 	my $percent = undef;
-	if (`amixer get $lchannel | grep off` ne "") {
+	if (`amixer get "$lchannel" | grep off` ne "") {
 		$percent = 0; # Real mute
 	}
 	else {
-		$percent = `amixer get $lchannel | grep -m1 %`;
+		$percent = `amixer get "$lchannel" | grep -m1 %`;
 		$percent =~ s/.*\[([0-9]*)%.*/$1/;
 		chomp($percent);
 	}
@@ -415,9 +418,9 @@ sub get_volume {
 sub update_icon {
 	my $first_run = shift;
 	unless (defined($first_run)) { $first_run = 0; }
-	my $volume = get_volume;
+	my $volume = get_volume();
 	if ($opt{static} == 0) {
-		my $icon_number = &get_icon_number($volume);
+		my $icon_number = get_icon_number($volume);
 		$icon->set_from_file("/usr/share/volwheel/icons/$opt{theme}/$icon_number.png");
  		if ($first_run == 1) {
  			$eventbox->add($icon);
@@ -429,21 +432,21 @@ sub update_icon {
  			$eventbox->add($icon);
  		}
 	}
-	&update_tooltip($volume);
+	update_tooltip($volume);
 	return 1; # this is needed for the refresh loop
 }
 
 sub get_icon_number {
 	my $volume = shift;
 	switch ($volume) {
-		case 0		{ return 1 }
-		case [1..16]	{ return 2 }
-		case [17..33]	{ return 3 }
-		case [34..50]	{ return 4 }
-		case [51..67]	{ return 5 }
-		case [68..84]	{ return 6 }
-		case [85..99]	{ return 7 }
-		case 100	{ return 8 }
+		case 0          { return 1 }
+		case [1..16]    { return 2 }
+		case [17..33]   { return 3 }
+		case [34..50]   { return 4 }
+		case [51..67]   { return 5 }
+		case [68..84]   { return 6 }
+		case [85..99]   { return 7 }
+		case 100        { return 8 }
 	}
 }
 
@@ -453,15 +456,15 @@ sub update_tooltip {
 }
 
 sub status {
-	my $volume = get_volume;
+	my $volume = get_volume();
 	print ("$opt{channel} : $volume%\n");
 }
 
 sub about_dialog {
 	my $about = Gtk2::AboutDialog->new;
-	$about->set_program_name($APPNAME);
-	$about->set_version($VERSION);
-	$about->set_copyright("Copyright (c) Olivier Duclos 2008");
+	$about->set_program_name(APPNAME);
+	$about->set_version(VERSION);
+	$about->set_copyright("Copyright (c) Olivier Duclos 2008-2009");
 	$about->set_comments("Set the volume with your mousewheel");
 	$about->set_website("http://oliwer.net/");
 	$about->run;
@@ -492,8 +495,8 @@ Trayicon usage :
 }
 
 sub version {
-print "$APPNAME version $VERSION
-Copyright (c) Olivier Duclos 2008.
+print APPNAME, " version ", VERSION, "
+Copyright (c) Olivier Duclos 2008-2009.
 http://oliwer.net/
 
 This program is free software: you can redistribute it and/or modify
