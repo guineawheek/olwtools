@@ -356,7 +356,7 @@ sub config_dialog {
 
 sub scale_window {
 	$winscale = Gtk2::Window->new('toplevel');
-	$winscale->set_type_hint('popup-menu');
+	$winscale->set_type_hint('normal');
 	$winscale->set_keep_above(1);
 	$winscale->set_skip_taskbar_hint(1);
 	$winscale->set_modal(1);
