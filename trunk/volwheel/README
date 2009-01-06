@@ -23,7 +23,7 @@ Requierements
  * alsa-utils (amixer) or OSS (ossmix)
 
 Installation
- * As root, run ./install.sh --prefix=PREFIX --destdir=DESTDIR
- * PREFIX is set to /usr by default
+ * As root, run ./install.sh --destdir=DESTDIR
+ * You probably don't want to use the destdir argument
  * DESTDIR is only useful for packagers
  * That is all.
