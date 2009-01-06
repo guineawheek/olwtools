@@ -25,7 +25,7 @@ use lib '/usr/lib/volwheel';
 use Alsa;
 use OSS;
 
-use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale/;
+use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale $scale/;
 
 use constant APPNAME => "VolWheel";
 use constant VERSION => "0.2.7beta1"; # 2009-01-06
@@ -180,6 +180,9 @@ sub scroll_handler {
 	if ("up" eq $event->direction) { volup(); }
 	else { voldown(); }
 	update_icon();
+	if ($opt{show_scale} == 1) {
+		$scale->set_value( get_volume($opt{channel}) );
+	}
 }
 
 sub popup {
@@ -225,7 +228,7 @@ sub get_conf {
 		if ($config[3] && $config[3] ne "") { $opt{theme} = $config[3]; }
 		if ($config[4] && $config[4] ne "") { $opt{iconpath} = $config[4]; }
 		if ($config[5] && $config[5] =~ /^(0|1)$/) { $opt{static} = $config[5]; }
-		if ($config[6] && $config[6] =~ /^[Alsa|OSS]$/) { $opt{driver} = $config[6]; }
+		if ($config[6] && $config[6] ne "") { $opt{driver} = $config[6]; }
 		foreach (values %opt) {
 			chomp $_;
 		}
@@ -245,7 +248,7 @@ sub save_config {
 	open (CONFIG, ">$ENV{HOME}/.config/volwheel")
 		or die "Error : Cannot open/create configuration file\n";
 	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n"
-			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n$opt{driver}";
+			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n$opt{driver}\n";
 	close CONFIG;
 }
 
@@ -463,12 +466,12 @@ sub scale_window {
 	my $separator = Gtk2::HSeparator->new;
 	$vbox->pack_start($separator, 0, 0, 0);
 
-	my $scale = Gtk2::VScale->new_with_range(0, 100, 1);
+	$scale = Gtk2::VScale->new_with_range(0, 100, 1);
 	$scale->set_digits(0);
 	$scale->set_value_pos('bottom');
 	$scale->set_inverted(1);
 	$scale->set_size_request(0, 120);
-	$scale->set_value( get_volume() );
+	$scale->set_value( get_volume($opt{channel}) );
 	$scale->signal_connect('value-changed' => sub {
 		set_volume( $scale->get_value(), $opt{channel} );
 		update_icon();
@@ -516,6 +519,7 @@ sub get_icon_number {
 		case [68..84]   { return 6 }
 		case [85..99]   { return 7 }
 		case 100        { return 8 }
+		else            { return 1 }
 	}
 }
 
