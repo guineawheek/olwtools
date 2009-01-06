@@ -1,3 +1,9 @@
+unknown - v0.2.7
+ * Added OSS support through ossmix
+ * Added an install script
+ * Minor improvements to the configuration window
+ * Lots of code rewrite
+
 2009-01-01 - v0.2.6
  * Added a timer to refresh the icon automatically
  * Fixed several bugs in the mini-mixer (should work better on KDE)

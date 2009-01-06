@@ -20,9 +20,10 @@ Requierements
  * Perl 5
  * Gtk2 perl module
  * Gtk2::TrayIcon perl module
- * alsa-utils (for amixer)
+ * alsa-utils (amixer) or OSS (ossmix)
 
 Installation
- * Copy volwheel in /usr/bin/ (or somewhere in your path)
- * Copy the icons folder in /usr/share/volwheel/
- * You're done.
+ * As root, run ./install.sh --prefix=PREFIX --destdir=DESTDIR
+ * PREFIX is set to /usr by default
+ * DESTDIR is only useful for packagers
+ * That is all.
