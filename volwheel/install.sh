@@ -15,13 +15,7 @@ if [[ "$1" =~ ^--destdir=.+ ]]; then
     DESTDIR=$(echo $1 | cut -d = -f 2)
 fi
 
-PREFIX=/usr
-if [[ "$1" =~ ^--prefix=.+ ]]; then
-    PREFIX=$(echo $1 | cut -d = -f 2)
-    PREFIX=${PREFIX:-/usr}
-fi
-
-PREFIX=$DESTDIR$PREFIX
+PREFIX=$DESTDIR/usr
 BINDIR=$PREFIX/bin
 LIBDIR=$PREFIX/lib/$PACKAGE
 DATAROOTDIR=$PREFIX/share/$PACKAGE
