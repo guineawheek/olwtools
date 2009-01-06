@@ -28,7 +28,7 @@ use OSS;
 use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale/;
 
 use constant APPNAME => "VolWheel";
-use constant VERSION => "0.2.6"; # 2009-01-01
+use constant VERSION => "0.2.7beta1"; # 2009-01-06
 
 # M A I N #
 
@@ -141,9 +141,9 @@ sub set_volume {
 		Alsa::set_volume($channel, $value);
 	}
 	elsif ($opt{driver} eq "OSS") {
-# 		if ($opt{channel} =~ /vmix/) {
-# 			$value = sprintf("%d", $value / 4);    Is this needed ?
-# 		}
+		if ($opt{channel} =~ /vmix/) {
+			$value = sprintf("%d", $value / 4);
+		}
 		OSS::set_volume($channel, $value);
 	}
 }
@@ -546,8 +546,7 @@ print "usage: volwheel [option]
   -v --version         show version informations
 
 When called without options, volwheel is a trayicon which allows you to
-quickly see or change the sound volume of your computer. VolWheel makes an
-heavy use of amixer, and thus will only work on ALSA systems.
+quickly see or change the sound volume of your computer.
 
 Trayicon usage :
   * scroll up          increase volume
