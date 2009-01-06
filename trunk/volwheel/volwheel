@@ -21,6 +21,10 @@ use warnings;
 use Switch;
 use if (@ARGV < 1),  Gtk2 => '-init';
 use if (@ARGV < 1), 'Gtk2::TrayIcon';
+use lib '/usr/lib/volwheel';
+use Alsa;
+use OSS;
+
 use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale/;
 
 use constant APPNAME => "VolWheel";
@@ -37,7 +41,7 @@ if (defined(@ARGV)) {
 		case ["-v", "--version"]    { version() }
 		case ["-i", "--increase"]   { volup()   }
 		case ["-d", "--decrease"]   { voldown() }
-		case ["-m", "--mute"]       { mute()    }
+		case ["-m", "--mute"]       { toggle()  }
 		case ["-s", "--status"]     { status()  }
 		else                        { usage()   }
 	}
@@ -64,32 +68,83 @@ else {
 # S U B S #
 
 sub volup {
-	system "amixer set \"$opt{channel}\" $opt{incr}%+ > /dev/null";
+	if ($opt{driver} eq "Alsa") {
+		if ( Alsa::is_muted($opt{channel}) > 0 ) {
+			Alsa::unmute( $opt{channel}, $opt{beforemute} );
+		}
+		else {
+			Alsa::volume_up( $opt{channel}, $opt{incr} );
+		}
+	}
+	elsif ($opt{driver} eq "OSS") {
+		if ( OSS::unmute($opt{channel}, $opt{beforemute}) == -1 ) {
+			OSS::volume_up( $opt{channel}, $opt{incr} );
+		}
+	}
 }
 
 sub voldown {
-	system "amixer set \"$opt{channel}\" $opt{incr}%- > /dev/null";
-}
-
-sub mute {
-	# fake mute
-	if (`amixer get "$opt{channel}" | grep pswitch` eq "")
-	{
-		my $level = `amixer get "$opt{channel}" | grep -m1 %`;
-		$level =~ s/.*\[([0-9]*)%.*/$1/;
-		chomp($level);
-		if ($level eq "0") {
-			$opt{beforemute} = 75 unless defined($opt{beforemute});
-			system "amixer set \"$opt{channel}\" $opt{beforemute}%+ > /dev/null"
-		}
-		else {
-			$opt{beforemute} = $level;
-			system "amixer set \"$opt{channel}\" 100%- > /dev/null";
+	if ($opt{driver} eq "Alsa") {
+		if ( Alsa::is_muted($opt{channel}) == 0 ) {
+			Alsa::volume_down( $opt{channel}, $opt{incr} );
 		}
 	}
-	# real mute
-	else {
-		system "amixer set \"$opt{channel}\" toggle > /dev/null";
+	elsif ($opt{driver} eq "OSS") {
+		if ( OSS::is_muted($opt{channel}) == 0 ) {
+			OSS::volume_down( $opt{channel}, $opt{incr} );
+		}
+	}
+}
+
+sub toggle {
+	if ($opt{driver} eq "Alsa") {
+
+		if ( Alsa::is_muted($opt{channel}) > 0 ) {
+			Alsa::unmute( $opt{channel}, $opt{beforemute} );
+		}
+		else {
+			$opt{beforemute} = Alsa::mute( $opt{channel} );
+		}
+
+	}
+	elsif ($opt{driver} eq "OSS") {
+		if ( OSS::is_muted($opt{channel}) ) {
+			OSS::unmute( $opt{channel}, $opt{beforemute} );
+		}
+		else {
+			$opt{beforemute} = OSS::mute( $opt{channel} );
+		}
+	}
+}
+
+sub get_volume {
+	my $channel = shift;
+
+	unless (defined($channel)) {$channel = $opt{channel}; }
+
+	if ($opt{driver} eq "Alsa") {
+		my ($muted, $volume) = Alsa::status($channel);
+		if ($muted > 0) { return 0 }
+		else { return $volume }
+	}
+	elsif ($opt{driver} eq "OSS") {
+		return ( OSS::volume($channel) );
+	}
+}
+
+sub set_volume {
+	my ($value, $channel) = @_;
+
+	unless (defined($channel)) {$channel = $opt{channel}; }
+
+	if ($opt{driver} eq "Alsa") {
+		Alsa::set_volume($channel, $value);
+	}
+	elsif ($opt{driver} eq "OSS") {
+# 		if ($opt{channel} =~ /vmix/) {
+# 			$value = sprintf("%d", $value / 4);    Is this needed ?
+# 		}
+		OSS::set_volume($channel, $value);
 	}
 }
 
@@ -114,7 +169,7 @@ sub click_handler {
 			popup();
 		}
 		else {
-			mute();
+			toggle();
 			update_icon();
 		}
 	}
@@ -157,6 +212,8 @@ sub get_conf {
 	$opt{static}     = 1;
 	$opt{show_scale} = 0;
 	$opt{loop_time}  = 2;
+	$opt{beforemute} = 75;
+	$opt{driver}     = "Alsa";
 
 	# Read the configuration file
 	if (-w "$ENV{HOME}/.config/volwheel") {
@@ -168,6 +225,7 @@ sub get_conf {
 		if ($config[3] && $config[3] ne "") { $opt{theme} = $config[3]; }
 		if ($config[4] && $config[4] ne "") { $opt{iconpath} = $config[4]; }
 		if ($config[5] && $config[5] =~ /^(0|1)$/) { $opt{static} = $config[5]; }
+		if ($config[6] && $config[6] =~ /^[Alsa|OSS]$/) { $opt{driver} = $config[6]; }
 		foreach (values %opt) {
 			chomp $_;
 		}
@@ -176,16 +234,18 @@ sub get_conf {
 	else {
 		# autodetect the mixer
 		if (-x "/usr/bin/gnome-alsamixer") { $opt{mixer} = "gnome-alsamixer"; }
-		if (-x "/usr/bin/xfce4-mixer") { $opt{mixer} = "xfce4-mixer"; }
+		if (-x "/usr/bin/xfce4-mixer")     { $opt{mixer} = "xfce4-mixer"; }
+		if (-x "/usr/bin/ossxmix")         { $opt{mixer} = "ossxmix"; }
 	}
 }
 
 sub save_config {
+	# TODO: respect the XDG specs
 	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
 	open (CONFIG, ">$ENV{HOME}/.config/volwheel")
 		or die "Error : Cannot open/create configuration file\n";
 	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n"
-			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n";
+			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n$opt{driver}";
 	close CONFIG;
 }
 
@@ -208,7 +268,28 @@ sub config_dialog {
 	my $frame_sound = Gtk2::Frame->new("Sound");
 	my $vbox1 = Gtk2::VBox->new(0, 10);
 
-	my $hbox1 = Gtk2::HBox->new(0, 10);
+	my $hbox0 = Gtk2::HBox->new(0, 10);
+	my $lbl_driver = Gtk2::Label->new("Driver");
+	my $combo_driver = Gtk2::ComboBox->new_text;
+		$combo_driver->set_size_request(160, 30);
+		foreach (("Alsa","OSS")) {
+			if ($_ eq $opt{driver}) {
+				$combo_driver->prepend_text($_);
+			}
+			else {
+				$combo_driver->append_text($_);
+			}
+		}
+		$combo_driver->set_active(0);
+		$combo_driver->signal_connect('changed' => sub {
+			$opt{driver} = $combo_driver->get_active_text;
+			update_icon();
+			});
+	$hbox0->pack_start($lbl_driver, 0, 1, 5);
+	$hbox0->pack_end($combo_driver, 0, 1, 5);
+	$vbox1->pack_start($hbox0, 0, 1, 2);
+
+	my $hbox1 = Gtk2::HBox->new(0, 2);
 	my $lbl_channel = Gtk2::Label->new("Default channel");
 	my $entry_channel = Gtk2::Entry->new;
 	$entry_channel->set_text($opt{channel});
@@ -336,6 +417,7 @@ sub config_dialog {
 	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
 	$btn_save->signal_connect(clicked => sub {
 			  if ( ($entry_channel->get_text) eq "" ) { return 666; }
+			  $opt{driver}   = $combo_driver->get_active_text;
 			  $opt{channel}  = $entry_channel->get_text;
 			  $opt{channel}  =~ s/^"(.*)"$/$1/; # No quotes !
 			  $opt{mixer}    = $entry_mixer->get_text;
@@ -351,6 +433,8 @@ sub config_dialog {
 	# END OF BOTTOM
 
 	$winconf->add($main_vbox);
+	$btn_save->set('can-default', 1);
+	$btn_save->grab_default;
 	$winconf->show_all;
 }
 
@@ -386,7 +470,7 @@ sub scale_window {
 	$scale->set_size_request(0, 120);
 	$scale->set_value( get_volume() );
 	$scale->signal_connect('value-changed' => sub {
-		system("amixer set \"$opt{channel}\" " . $scale->get_value() . "% > /dev/null");
+		set_volume( $scale->get_value(), $opt{channel} );
 		update_icon();
 		});
 	$vbox->pack_start($scale, 0, 0, 0);
@@ -398,21 +482,6 @@ sub scale_window {
 	$winscale->show_all;
 	$winscale->set_focus($scale);
 	$opt{show_scale} = 1;
-}
-
-sub get_volume {
-	my $lchannel = shift(@_);
-	unless (defined($lchannel)) {$lchannel = $opt{channel}; }
-	my $percent = undef;
-	if (`amixer get "$lchannel" | grep off` ne "") {
-		$percent = 0; # Real mute
-	}
-	else {
-		$percent = `amixer get "$lchannel" | grep -m1 %`;
-		$percent =~ s/.*\[([0-9]*)%.*/$1/;
-		chomp($percent);
-	}
-	return $percent;
 }
 
 sub update_icon {
@@ -432,7 +501,7 @@ sub update_icon {
  			$eventbox->add($icon);
  		}
 	}
-	update_tooltip($volume);
+	$tooltip->set_tip($trayicon, "$opt{channel} : $volume%");
 	return 1; # this is needed for the refresh loop
 }
 
@@ -450,16 +519,6 @@ sub get_icon_number {
 	}
 }
 
-sub update_tooltip {
-	my $volume = shift;
-	$tooltip->set_tip($trayicon, "$opt{channel} : $volume%");
-}
-
-sub status {
-	my $volume = get_volume();
-	print ("$opt{channel} : $volume%\n");
-}
-
 sub about_dialog {
 	my $about = Gtk2::AboutDialog->new;
 	$about->set_program_name(APPNAME);
@@ -469,6 +528,11 @@ sub about_dialog {
 	$about->set_website("http://oliwer.net/");
 	$about->run;
 	$about->destroy;
+}
+
+sub status {
+	my $volume = get_volume();
+	print ("$opt{channel} : $volume%\n");
 }
 
 sub usage {
