@@ -20,10 +20,9 @@ BINDIR=$PREFIX/bin
 LIBDIR=$PREFIX/lib/$PACKAGE
 DATAROOTDIR=$PREFIX/share/$PACKAGE
 
-install -v -d {$BINDIR,$LIBDIR,$DATAROOTDIR}
-install -v -m755 volwheel $BINDIR
-install -v -m644 lib/* $LIBDIR
-cp      -v -r icons $DATAROOTDIR/
+rm -vrf $LIBDIR
+rm -vrf $DATAROOTDIR
+rm -v   $BINDIR/volwheel
 
 echo
 echo "$PACKAGE has been succesfully installed."

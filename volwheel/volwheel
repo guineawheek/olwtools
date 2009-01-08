@@ -24,15 +24,16 @@ use if (@ARGV < 1), 'Gtk2::TrayIcon';
 use lib '/usr/lib/volwheel';
 use Alsa;
 use OSS;
-
-use vars qw/%opt $tooltip $trayicon $icon $eventbox $winscale $scale/;
+use Conf;
+use ConfDialog;
 
 use constant APPNAME => "VolWheel";
-use constant VERSION => "0.2.7beta1"; # 2009-01-06
+use constant VERSION => "0.2.7beta2"; # 2009-01-07
 
 # M A I N #
 
-get_conf();
+our $opt = Conf->new;
+    $opt->read_conf;
 
 if (defined(@ARGV)) {
 	# command line
@@ -45,74 +46,70 @@ if (defined(@ARGV)) {
 		case ["-s", "--status"]     { status()  }
 		else                        { usage()   }
 	}
+	return 0;
 }
-else {
-	# Tray icon
-	$trayicon = Gtk2::TrayIcon->new(APPNAME);
-	$icon = Gtk2::Image->new;
-	$tooltip= Gtk2::Tooltips->new;
-	$eventbox = Gtk2::EventBox->new;
-	   $eventbox->signal_connect('button_release_event', \&click_handler);
-	   $eventbox->signal_connect('scroll_event', \&scroll_handler);
-	   $eventbox->signal_connect('enter_notify_event', \&update_icon);
-	update_icon(1);
-	$trayicon->add($eventbox);
-	$trayicon->show_all;
-	# the refresh loop
-	my $loop = Glib::Timeout->add_seconds($opt{loop_time}, \&update_icon);
-	Gtk2->main;
-}
+
+# Tray icon
+my $trayicon = Gtk2::TrayIcon->new(APPNAME);
+my $icon = Gtk2::Image->new;
+my $tooltip= Gtk2::Tooltips->new;
+my $eventbox = Gtk2::EventBox->new;
+   $eventbox->signal_connect('button_release_event', \&click_handler);
+   $eventbox->signal_connect('scroll_event', \&scroll_handler);
+   $eventbox->signal_connect('enter_notify_event', \&update_icon);
+update_icon(1);
+$trayicon->add($eventbox);
+$trayicon->show_all;
+
+# the refresh loop
+my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
+
+# the mini-mixer
+my $winscale;
+my $scale;
+
+Gtk2->main;
 
 
 
 # S U B S #
 
 sub volup {
-	if ($opt{driver} eq "Alsa") {
-		if ( Alsa::is_muted($opt{channel}) > 0 ) {
-			Alsa::unmute( $opt{channel}, $opt{beforemute} );
-		}
-		else {
-			Alsa::volume_up( $opt{channel}, $opt{incr} );
+	if ($opt->driver eq "Alsa") {
+		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1) {
+			Alsa::volume_up( $opt->channel, $opt->increment );
 		}
 	}
-	elsif ($opt{driver} eq "OSS") {
-		if ( OSS::unmute($opt{channel}, $opt{beforemute}) == -1 ) {
-			OSS::volume_up( $opt{channel}, $opt{incr} );
+	elsif ($opt->driver eq "OSS") {
+		if ( OSS::unmute($opt->channel, $opt->before_mute) == -1 ) {
+			OSS::volume_up( $opt->channel, $opt->increment );
 		}
 	}
 }
 
 sub voldown {
-	if ($opt{driver} eq "Alsa") {
-		if ( Alsa::is_muted($opt{channel}) == 0 ) {
-			Alsa::volume_down( $opt{channel}, $opt{incr} );
+	if ($opt->driver eq "Alsa") {
+		if ( Alsa::is_muted($opt->channel) == 0 ) {
+			Alsa::volume_down( $opt->channel, $opt->increment );
 		}
 	}
-	elsif ($opt{driver} eq "OSS") {
-		if ( OSS::is_muted($opt{channel}) == 0 ) {
-			OSS::volume_down( $opt{channel}, $opt{incr} );
+	elsif ($opt->driver eq "OSS") {
+		if ( OSS::is_muted($opt->channel) == 0 ) {
+			OSS::volume_down( $opt->channel, $opt->increment );
 		}
 	}
 }
 
 sub toggle {
-	if ($opt{driver} eq "Alsa") {
+	if ($opt->driver eq "Alsa") {
 
-		if ( Alsa::is_muted($opt{channel}) > 0 ) {
-			Alsa::unmute( $opt{channel}, $opt{beforemute} );
+		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1 ) {
+			$opt->before_mute( Alsa::mute($opt->channel) );
 		}
-		else {
-			$opt{beforemute} = Alsa::mute( $opt{channel} );
-		}
-
 	}
-	elsif ($opt{driver} eq "OSS") {
-		if ( OSS::is_muted($opt{channel}) ) {
-			OSS::unmute( $opt{channel}, $opt{beforemute} );
-		}
-		else {
-			$opt{beforemute} = OSS::mute( $opt{channel} );
+	elsif ($opt->driver eq "OSS") {
+		if ( OSS::unmute($opt->channel, $opt->before_mute) == -1 ) {
+			$opt->before_mute( OSS::mute($opt->channel) );
 		}
 	}
 }
@@ -120,14 +117,14 @@ sub toggle {
 sub get_volume {
 	my $channel = shift;
 
-	unless (defined($channel)) {$channel = $opt{channel}; }
+	unless (defined($channel)) {$channel = $opt->channel; }
 
-	if ($opt{driver} eq "Alsa") {
+	if ($opt->driver eq "Alsa") {
 		my ($muted, $volume) = Alsa::status($channel);
 		if ($muted > 0) { return 0 }
 		else { return $volume }
 	}
-	elsif ($opt{driver} eq "OSS") {
+	elsif ($opt->driver eq "OSS") {
 		return ( OSS::volume($channel) );
 	}
 }
@@ -135,13 +132,13 @@ sub get_volume {
 sub set_volume {
 	my ($value, $channel) = @_;
 
-	unless (defined($channel)) {$channel = $opt{channel}; }
+	unless (defined($channel)) {$channel = $opt->channel; }
 
-	if ($opt{driver} eq "Alsa") {
+	if ($opt->driver eq "Alsa") {
 		Alsa::set_volume($channel, $value);
 	}
-	elsif ($opt{driver} eq "OSS") {
-		if ($opt{channel} =~ /vmix/) {
+	elsif ($opt->driver eq "OSS") {
+		if ($opt->channel =~ /vmix/) {
 			$value = sprintf("%d", $value / 4);
 		}
 		OSS::set_volume($channel, $value);
@@ -149,29 +146,30 @@ sub set_volume {
 }
 
 sub launch_mixer {
-	exec $opt{mixer} unless fork;
+	exec $opt->mixer unless fork;
 	$SIG{CHLD} = "IGNORE";
 }
 
 sub click_handler {
 	my ($check, $event) = @_;
 
-	if (1 eq $event->button) {
-		if ($opt{show_scale} == 0) {
+	# Left click
+	if ($event->button eq 1) {
+		if ($opt->show_scale == 0) {
 			scale_window();
 		}
 		else {
 			$winscale->destroy;
 		}
 	}
-	else {
-		if (3 eq $event->button) {
-			popup();
-		}
-		else {
-			toggle();
-			update_icon();
-		}
+	# Right click
+	elsif ($event->button eq 3) {
+		popup();
+	}
+	# Middle click
+	elsif ($event->button eq 2) {
+		toggle();
+		update_icon();
 	}
 }
 
@@ -180,8 +178,8 @@ sub scroll_handler {
 	if ("up" eq $event->direction) { volup(); }
 	else { voldown(); }
 	update_icon();
-	if ($opt{show_scale} == 1) {
-		$scale->set_value( get_volume($opt{channel}) );
+	if ($opt->show_scale == 1) {
+		$scale->set_value( get_volume($opt->channel) );
 	}
 }
 
@@ -192,7 +190,7 @@ sub popup {
 	my $item_separ = Gtk2::SeparatorMenuItem->new;
 	my $item_quit  = Gtk2::ImageMenuItem->new_from_stock('gtk-quit');
 
-	$item_prefs->signal_connect('activate', \&config_dialog);
+	$item_prefs->signal_connect('activate', \&ConfDialog::show);
 	$item_about->signal_connect('activate', \&about_dialog);
 	$item_quit->signal_connect('activate', \&out);
 
@@ -205,242 +203,6 @@ sub popup {
 	$menu->popup(undef, undef, undef, undef, 0, 0);
 }
 
-sub get_conf {
-	# Default configuration
-	$opt{channel}    = "PCM";
-	$opt{mixer}      = "xterm -e 'alsamixer'";
-	$opt{incr}       = 3;
-	$opt{theme}      = "simple-blue";
-	$opt{iconpath}   = "/usr/share/volwheel/icons/volwheel.png";
-	$opt{static}     = 1;
-	$opt{show_scale} = 0;
-	$opt{loop_time}  = 2;
-	$opt{beforemute} = 75;
-	$opt{driver}     = "Alsa";
-
-	# Read the configuration file
-	if (-w "$ENV{HOME}/.config/volwheel") {
-		open (CONFIG, "$ENV{HOME}/.config/volwheel");
-		my @config = <CONFIG>;
-		if ($config[0]) { $opt{channel} = $config[0]; }
-		if ($config[1]) { $opt{mixer} = $config[1]; }
-		if ($config[2] && $config[2] =~ /^\d+$/) { $opt{incr} = $config[2]; }
-		if ($config[3] && $config[3] ne "") { $opt{theme} = $config[3]; }
-		if ($config[4] && $config[4] ne "") { $opt{iconpath} = $config[4]; }
-		if ($config[5] && $config[5] =~ /^(0|1)$/) { $opt{static} = $config[5]; }
-		if ($config[6] && $config[6] ne "") { $opt{driver} = $config[6]; }
-		foreach (values %opt) {
-			chomp $_;
-		}
-		close CONFIG;
-	}
-	else {
-		# autodetect the mixer
-		if (-x "/usr/bin/gnome-alsamixer") { $opt{mixer} = "gnome-alsamixer"; }
-		if (-x "/usr/bin/xfce4-mixer")     { $opt{mixer} = "xfce4-mixer"; }
-		if (-x "/usr/bin/ossxmix")         { $opt{mixer} = "ossxmix"; }
-	}
-}
-
-sub save_config {
-	# TODO: respect the XDG specs
-	if (! -d "$ENV{HOME}/.config") { mkdir "$ENV{HOME}/.config" }
-	open (CONFIG, ">$ENV{HOME}/.config/volwheel")
-		or die "Error : Cannot open/create configuration file\n";
-	print CONFIG "$opt{channel}\n$opt{mixer}\n$opt{incr}\n"
-			. "$opt{theme}\n$opt{iconpath}\n$opt{static}\n$opt{driver}\n";
-	close CONFIG;
-}
-
-sub config_dialog {
-	# Globals to this sub
-	my $filechooser = Gtk2::FileChooserButton->new("Choose a file", 'open');
-	my $combo_theme = Gtk2::ComboBox->new_text;
-
-
-	my $winconf = Gtk2::Window->new('toplevel');
-	$winconf->set_title(APPNAME . " Settings");
-	$winconf->set_border_width(10);
-	$winconf->set_position('center');
-
-	my $main_vbox = Gtk2::VBox->new(0,5);
-
-	# FIRST TAB
-	my $vbox = Gtk2::VBox->new(0,5);
-
-	my $frame_sound = Gtk2::Frame->new("Sound");
-	my $vbox1 = Gtk2::VBox->new(0, 10);
-
-	my $hbox0 = Gtk2::HBox->new(0, 10);
-	my $lbl_driver = Gtk2::Label->new("Driver");
-	my $combo_driver = Gtk2::ComboBox->new_text;
-		$combo_driver->set_size_request(160, 30);
-		foreach (("Alsa","OSS")) {
-			if ($_ eq $opt{driver}) {
-				$combo_driver->prepend_text($_);
-			}
-			else {
-				$combo_driver->append_text($_);
-			}
-		}
-		$combo_driver->set_active(0);
-		$combo_driver->signal_connect('changed' => sub {
-			$opt{driver} = $combo_driver->get_active_text;
-			update_icon();
-			});
-	$hbox0->pack_start($lbl_driver, 0, 1, 5);
-	$hbox0->pack_end($combo_driver, 0, 1, 5);
-	$vbox1->pack_start($hbox0, 0, 1, 2);
-
-	my $hbox1 = Gtk2::HBox->new(0, 2);
-	my $lbl_channel = Gtk2::Label->new("Default channel");
-	my $entry_channel = Gtk2::Entry->new;
-	$entry_channel->set_text($opt{channel});
-	$hbox1->pack_start($lbl_channel, 0, 1, 5);
-	$hbox1->pack_end($entry_channel, 0, 1, 5);
-	$vbox1->pack_start($hbox1, 0, 1, 2);
-
-	my $hbox2 = Gtk2::HBox->new(0, 2);
-	my $lbl_mixer = Gtk2::Label->new("Default mixer");
-	my $entry_mixer = Gtk2::Entry->new;
-	$entry_mixer->set_text($opt{mixer});
-	$hbox2->pack_start($lbl_mixer, 0, 0, 5);
-	$hbox2->pack_end($entry_mixer, 0, 0, 5);
-	$vbox1->pack_start($hbox2, 1, 0, 2);
-
-	my $hbox3 = Gtk2::HBox->new(0, 2);
-	my $lbl_incr = Gtk2::Label->new("Volume incrementation");
-	my $spin_incr = Gtk2::SpinButton->new_with_range(1, 99, 1);
-	$spin_incr->set_value($opt{incr});
-	$hbox3->pack_start($lbl_incr, 0, 0, 5);
-	$hbox3->pack_end($spin_incr, 0, 0, 5);
-	$vbox1->pack_start($hbox3, 1, 0, 5);
-
-	$frame_sound->add($vbox1);
-	$vbox->pack_start($frame_sound, 1, 0, 5);
-
-
-	my $frame_icons = Gtk2::Frame->new("Icons");
-	my $vbox2 = Gtk2::VBox->new(0, 10);
-
-	my $hbox4 = Gtk2::HBox->new(0, 2);
-	my $lbl_icomod = Gtk2::Label->new("Icon Mode");
-	my $radio_stc = Gtk2::RadioButton->new_with_label(undef, "Static");
-	   $radio_stc->signal_connect('toggled' => sub {
-					$filechooser->set_sensitive(1);
-					$combo_theme->set_sensitive(0);
-					$opt{static} = 1;
-					update_icon();
-					});
-	my $radio_dyn = Gtk2::RadioButton->new_with_label($radio_stc, "Dynamic");
-	   $radio_dyn->signal_connect('toggled' => sub {
-					$filechooser->set_sensitive(0);
-					$combo_theme->set_sensitive(1);
-					$opt{static} = 0;
-					update_icon();
-					});
-	if ($opt{static} == 1) {
-		$radio_stc->set_active(1);
-		$radio_dyn->set_active(0);
-	}
-	else {
-		$radio_dyn->set_active(1);
-		$radio_stc->set_active(0);
-	}
-	$hbox4->pack_start($lbl_icomod, 0, 0, 5);
-	$hbox4->pack_end($radio_stc, 0, 0, 5);
-	$hbox4->pack_end($radio_dyn, 0, 0, 5);
-	$vbox2->add($hbox4);
-
-	my $hbox5 = Gtk2::HBox->new(0, 2);
-	my $lbl_static = Gtk2::Label->new("Static icon path");
-	$filechooser->select_filename($opt{iconpath});
-	$filechooser->set_width_chars(12);
-	if ($opt{static} != 1) { $filechooser->set_sensitive(0); }
-	$filechooser->signal_connect('file-set' => sub {
-			$opt{iconpath} = $filechooser->get_filename;
-			update_icon();
-			});
-	$hbox5->pack_start($lbl_static, 0, 0, 5);
-	$hbox5->pack_end($filechooser, 0, 0, 5);
-	$vbox2->add($hbox5);
-
-	my $hbox6 = Gtk2::HBox->new(0, 2);
-	my $lbl_icothm= Gtk2::Label->new("Icon theme");
-	$combo_theme->append_text($opt{theme});
-	opendir(DIR, "/usr/share/volwheel/icons")
-		or die ("Cannot open themes directory : /usr/share/volwheel/icons\n");
-	my @theme_list = grep !/^\.\.?$/, readdir DIR;
-	closedir(DIR);
-	my $theme = undef;
-	foreach $theme (@theme_list) {
-		if (($theme ne $opt{theme}) and
-		 (-d "/usr/share/volwheel/icons/$theme")) {
-			$combo_theme->append_text($theme);
-		}
-	}
-	$combo_theme->set_active(0);
-	if ($opt{static} == 1) { $combo_theme->set_sensitive(0); }
-	$combo_theme->signal_connect('changed' => sub {
-			$opt{theme} = $combo_theme->get_active_text;
-			update_icon();
-			});
-	$hbox6->pack_start($lbl_icothm, 0, 0, 5);
-	$hbox6->pack_end($combo_theme, 0, 0, 5);
-	$vbox2->pack_end($hbox6, 1, 0, 5);
-
-	$frame_icons->add($vbox2);
-	$vbox->pack_start($frame_icons, 1, 0, 5);
-	# END OF FIRST TAB
-
-	# START SECOND TAB
-	#my $tab2_vbox = Gtk2::VBox->new(0,2);
-	#my $label = Gtk2::Label->new("Hahaha");
-	#$tab2_vbox->add($label);
-	# END OF SECOND TAB
-
-	# START THIRD TAB
-	#my $tab3_vbox = Gtk2::VBox->new(0,2);
-	#my $label2 = Gtk2::Label->new("In your dreams !");
-	#$tab3_vbox->add($label2);
-	# END OF THIRD TAB
-
-	# The NOTEBOOK
-	my $notebook = Gtk2::Notebook->new;
-	$notebook->append_page($vbox, "General");
-	#$notebook->append_page($tab2_vbox, "MiniMixer");
-	#$notebook->append_page($tab3_vbox, "Mouse Bindings");
-	$main_vbox->pack_start($notebook, 1, 0, 5);
-	##
-
-	# BOTTOM
-	my $hbox_bottom = Gtk2::HBox->new(0, 2);
-	my $btn_cancel = Gtk2::Button->new_from_stock('gtk-cancel');
-	$btn_cancel->signal_connect('clicked' => sub { $winconf->destroy });
-	my $btn_save = Gtk2::Button->new_from_stock('gtk-save');
-	$btn_save->signal_connect(clicked => sub {
-			  if ( ($entry_channel->get_text) eq "" ) { return 666; }
-			  $opt{driver}   = $combo_driver->get_active_text;
-			  $opt{channel}  = $entry_channel->get_text;
-			  $opt{channel}  =~ s/^"(.*)"$/$1/; # No quotes !
-			  $opt{mixer}    = $entry_mixer->get_text;
-			  $opt{incr}     = $spin_incr->get_value_as_int;
-			  $opt{iconpath} = $filechooser->get_filename;
-			  $opt{theme}    = $combo_theme->get_active_text;
-			  save_config();
-			  $winconf->destroy;
-			 });
-	$hbox_bottom->add($btn_cancel);
-	$hbox_bottom->add($btn_save);
-	$main_vbox->pack_start($hbox_bottom, 1, 0, 5);
-	# END OF BOTTOM
-
-	$winconf->add($main_vbox);
-	$btn_save->set('can-default', 1);
-	$btn_save->grab_default;
-	$winconf->show_all;
-}
-
 sub scale_window {
 	$winscale = Gtk2::Window->new('toplevel');
 	$winscale->set_type_hint('normal');
@@ -451,7 +213,7 @@ sub scale_window {
 	$winscale->set_border_width(10);
 	$winscale->set_position('mouse');
 	$winscale->signal_connect('destroy' => sub{
-			$opt{show_scale} = 0;
+			$opt->show_scale(0);
 			});
 	$winscale->signal_connect('focus-out-event' => sub{
 			$winscale->destroy;
@@ -460,7 +222,7 @@ sub scale_window {
 	my $vbox = Gtk2::VBox->new(0, 4);
 
 	my $btn_mixer = Gtk2::Button->new_with_label("Mixer");
-	$btn_mixer->signal_connect(clicked => \&launch_mixer);
+	$btn_mixer->signal_connect('clicked' => \&launch_mixer);
 	$vbox->pack_start($btn_mixer, 0, 0, 0);
 
 	my $separator = Gtk2::HSeparator->new;
@@ -471,40 +233,40 @@ sub scale_window {
 	$scale->set_value_pos('bottom');
 	$scale->set_inverted(1);
 	$scale->set_size_request(0, 120);
-	$scale->set_value( get_volume($opt{channel}) );
+	$scale->set_value( get_volume($opt->channel) );
 	$scale->signal_connect('value-changed' => sub {
-		set_volume( $scale->get_value(), $opt{channel} );
+		set_volume( $scale->get_value(), $opt->channel );
 		update_icon();
 		});
 	$vbox->pack_start($scale, 0, 0, 0);
 
-	my $label = Gtk2::Label->new($opt{channel});
+	my $label = Gtk2::Label->new($opt->channel);
 	$vbox->pack_start($label, 0, 0, 0);
 
 	$winscale->add($vbox);
 	$winscale->show_all;
 	$winscale->set_focus($scale);
-	$opt{show_scale} = 1;
+	$opt->show_scale(1);
 }
 
 sub update_icon {
 	my $first_run = shift;
 	unless (defined($first_run)) { $first_run = 0; }
 	my $volume = get_volume();
-	if ($opt{static} == 0) {
+	if ($opt->icon_static == 0) {
 		my $icon_number = get_icon_number($volume);
-		$icon->set_from_file("/usr/share/volwheel/icons/$opt{theme}/$icon_number.png");
+		$icon->set_from_file("/usr/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
  		if ($first_run == 1) {
  			$eventbox->add($icon);
  		}
 	}
 	else {
-		$icon->set_from_file($opt{iconpath});
+		$icon->set_from_file($opt->icon_path);
  		if ($first_run == 1) {
  			$eventbox->add($icon);
  		}
 	}
-	$tooltip->set_tip($trayicon, "$opt{channel} : $volume%");
+	$tooltip->set_tip($trayicon, $opt->channel." : $volume%");
 	return 1; # this is needed for the refresh loop
 }
 
@@ -536,7 +298,7 @@ sub about_dialog {
 
 sub status {
 	my $volume = get_volume();
-	print ("$opt{channel} : $volume%\n");
+	print ($opt->channel." : $volume%\n");
 }
 
 sub usage {
