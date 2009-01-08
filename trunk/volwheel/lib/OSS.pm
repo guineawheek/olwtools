@@ -81,7 +81,7 @@ sub mute {
 		return -1;
 	}
 	else {
-		system "ossmix \"$opt{channel}\" 0 > /dev/null";
+		system "ossmix \"$channel\" 0 > /dev/null";
 	}
 
 	return $volume;
@@ -96,7 +96,7 @@ sub unmute {
 	my $volume = volume($channel);
 
 	if ($volume == 0) {
-		system "ossmix \"$opt{channel}\" +$old_volume > /dev/null"
+		system "ossmix \"$channel\" +$old_volume > /dev/null"
 	}
 	else {
 		return -1; # The channel is not muted !
