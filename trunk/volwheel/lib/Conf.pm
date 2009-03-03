@@ -16,11 +16,7 @@ package Conf;
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-# require Exporter;
-# @ISA = qw(Exporter);
-# @EXPORT = qw(driver channel mixer increment icon_theme icon_path iscon_static);
-
+use strict;
 
 sub new {
     my $class = shift;
@@ -30,12 +26,12 @@ sub new {
 	$self->{_mixer}         = "xterm -e 'alsamixer'";
 	$self->{_increment}     = 3;
 	$self->{_icon_theme}    = "simple-blue";
-	$self->{_icon_path}     = "/usr/share/volwheel/icons/volwheel.png";
+	$self->{_icon_path}     = "$::prefix/share/volwheel/icons/volwheel.png";
 	$self->{_icon_static}   = 0;
 	$self->{_loop_time}     = 2;
 	$self->{_before_mute}   = 75;
 	$self->{_show_scale}    = 0;
-    $self->{_channel_list}  = [];
+    $self->{_channel_list}  = [$self->{_channel},"Master","Capture"];
     bless ($self, $class);
     return $self;
 }
@@ -59,6 +55,7 @@ sub read_conf {
 
 	my $self = shift;
 	my $path = get_conf_path();
+	my $line7;
 
 	if (-r "$path/volwheel") {
 		open (CONFIG, "$path/volwheel");
@@ -70,8 +67,11 @@ sub read_conf {
 		if ($config[4] && $config[4] ne "")        { $self->{_icon_path}   = $config[4]; }
 		if ($config[5] && $config[5] =~ /^(0|1)$/) { $self->{_icon_static} = $config[5]; }
 		if ($config[6] && $config[6] ne "")        { $self->{_driver}      = $config[6]; }
-		chomp %{$self};
+		if ($config[7] && $config[7] =~ /:/)       { $line7 = $config[7]; }
 		close CONFIG;
+		chomp %{$self};
+		chomp $line7;
+		$self->channel_list( split(":", $line7) );
 	}
 	else {
 		# autodetect the mixer
@@ -88,14 +88,15 @@ sub write_conf {
 	my $path = get_conf_path();
 
 	open (CONFIG, ">$path/volwheel")
-		or die "Error : Cannot open/create configuration file $path/volwheel\n";
-	print CONFIG $self->{_channel}     . $/ .
-	             $self->{_mixer}       . $/ .
-				 $self->{_increment}   . $/ .
-				 $self->{_icon_theme}  . $/ .
-				 $self->{_icon_path}   . $/ .
-				 $self->{_icon_static} . $/ .
-				 $self->{_driver}      . $/ ;
+		or warn "Error : Cannot open/create configuration file $path/volwheel\n";
+	print CONFIG $self->{_channel}             . $/ .
+	             $self->{_mixer}               . $/ .
+				 $self->{_increment}           . $/ .
+				 $self->{_icon_theme}          . $/ .
+				 $self->{_icon_path}           . $/ .
+				 $self->{_icon_static}         . $/ .
+				 $self->{_driver}              . $/ .
+				 join(":", $self->channel_list).":$/";
 	close CONFIG;
 
 }

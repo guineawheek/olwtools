@@ -1,3 +1,7 @@
+2008-01-15 - v0.2.7beta3
+ * More OSS fixes
+ * MiniMixer implementation
+
 2009-01-07 - v0.2.7beta2
  * Fixed some OSS bugs
  * Added support for xdg-user-dir spec

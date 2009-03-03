@@ -7,11 +7,13 @@ cd `pwd`
 
 PACKAGE=volwheel
 VERSION=$(head -n1 ChangeLog | cut -d "v" -f2)
+DIR=$HOME/$PACKAGE-$VERSION
 
-mkdir release
-cp -R [!release*]* release
-cp -R lib release
-rm -rf release/*/.svn
-rm -rf release/*/*/.svn
-tar cvzf $PACKAGE-$VERSION.tar.gz release
-rm -rf release
+mkdir $DIR
+cp -R * $DIR/
+rm $DIR/release.sh
+rm -rf $DIR/*/.svn
+rm -rf $DIR/*/*/.svn
+cd ~
+tar cvzf $PACKAGE-$VERSION.tar.gz $PACKAGE-$VERSION
+rm -rf $DIR
