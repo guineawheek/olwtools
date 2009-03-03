@@ -16,6 +16,8 @@ package ConfDialog;
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use strict;
+use Glib;
 
 sub show {
 
@@ -134,14 +136,14 @@ sub show {
 	my $hbox6 = Gtk2::HBox->new(0, 2);
 	my $lbl_icothm= Gtk2::Label->new("Icon theme");
 	$combo_theme->append_text($::opt->icon_theme);
-	opendir(DIR, "/usr/share/volwheel/icons")
-		or die ("Cannot open themes directory : /usr/share/volwheel/icons\n");
+	opendir(DIR, "$::prefix/share/volwheel/icons")
+		or die ("Cannot open themes directory : $::prefix/share/volwheel/icons\n");
 	my @theme_list = grep !/^\.\.?$/, readdir DIR;
 	closedir(DIR);
 	my $theme = undef;
 	foreach $theme (@theme_list) {
 		if (($theme ne $::opt->icon_theme) and
-		 (-d "/usr/share/volwheel/icons/$theme")) {
+		 (-d "$::pefix/share/volwheel/icons/$theme")) {
 			$combo_theme->append_text($theme);
 		}
 	}
@@ -160,9 +162,58 @@ sub show {
 	# END OF FIRST TAB
 
 	# START SECOND TAB
-	#my $tab2_vbox = Gtk2::VBox->new(0,2);
-	#my $label = Gtk2::Label->new("Hahaha");
-	#$tab2_vbox->add($label);
+	my $tab2_vbox = Gtk2::VBox->new(0,10);
+	my $tab2_label = Gtk2::Label->new
+			("Choose which channels to show in the MiniMixer");
+	$tab2_vbox->pack_start($tab2_label, 0, 0, 10);
+
+	my $list_hbox = Gtk2::HBox->new(0, 10);
+
+	my $model = Gtk2::ListStore->new('Glib::String');
+	foreach ($::opt->channel_list) {
+		$model->set($model->append, 0, $_);
+	}
+	my $view  = Gtk2::TreeView->new($model);
+	my $cell = Gtk2::CellRendererText->new;
+	$cell->set_property('editable', 1);
+	$cell->signal_connect('edited' => sub {
+			my ($cell, $pathstring, $newtext) = @_;
+			my $path = Gtk2::TreePath->new_from_string($pathstring);
+			my $iter = $model->get_iter($path);
+			$model->set ($iter, 0, $newtext);
+			});
+	my $column = Gtk2::TreeViewColumn->new_with_attributes('Channel Name',
+	                                                       $cell,
+	                                                       text => 0,);
+	$view->append_column($column);
+	$view->set_reorderable(1);
+	$view->set_size_request(-1, 160);
+	$model->signal_connect('row-inserted', sub {
+			my ($model, $path, $iter) = @_;
+			$view->set_cursor_on_cell($path, $column, $cell, 1);
+			# FFFFFFFFFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUU-
+			});
+	$list_hbox->pack_start($view, 1, 1, 10);
+
+	$tab2_vbox->pack_start($list_hbox, 0, 0, 0);
+
+	my $buttons_hbox = Gtk2::HBox->new(1, 10);
+	my $add_btn = Gtk2::Button->new_from_stock("gtk-add");
+	$add_btn->signal_connect('clicked', sub {
+			$model->set($model->append, 0, "New Channel");
+			});
+	$buttons_hbox->pack_start($add_btn, 0, 0, 10);
+	my $del_btn = Gtk2::Button->new_from_stock("gtk-remove");
+	$del_btn->signal_connect('clicked', sub {
+			my $selection = $view->get_selection;
+			my @iter = $selection->get_selected;
+			if ($iter[1] ne "") {
+				$model->remove($iter[1]);
+			}
+			});
+	$buttons_hbox->pack_start($del_btn, 0, 0, 10);
+
+	$tab2_vbox->pack_start($buttons_hbox, 0, 0, 0);
 	# END OF SECOND TAB
 
 	# START THIRD TAB
@@ -174,7 +225,7 @@ sub show {
 	# The NOTEBOOK
 	my $notebook = Gtk2::Notebook->new;
 	$notebook->append_page($vbox, "General");
-	#$notebook->append_page($tab2_vbox, "MiniMixer");
+	$notebook->append_page($tab2_vbox, "MiniMixer");
 	#$notebook->append_page($tab3_vbox, "Mouse Bindings");
 	$main_vbox->pack_start($notebook, 1, 0, 5);
 	##
@@ -194,6 +245,14 @@ sub show {
 			  $::opt->increment($spin_incr->get_value_as_int);
 			  $::opt->icon_path($filechooser->get_filename);
 			  $::opt->icon_theme($combo_theme->get_active_text);
+			  my @array;
+			  $model->foreach(sub {
+					my ($model, $path, $iter) = @_;
+					my @values = $model->get($iter);
+					push @array, $values[0];
+					return 0; # required by foreach()
+					});
+			  $::opt->channel_list(@array);
 			  $::opt->write_conf;
 			  $winconf->destroy;
 			 });

@@ -18,6 +18,7 @@ package OSS;
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use strict;
 
 sub volume {
 
@@ -74,17 +75,7 @@ sub status {
 sub mute {
 
 	my $channel = shift;
-
-	my $volume = volume($channel);
-
-	if ( $volume == 0 ) {
-		return -1;
-	}
-	else {
-		system "ossmix \"$channel\" 0 > /dev/null";
-	}
-
-	return $volume;
+	system "ossmix \"$channel\" 0 > /dev/null";
 
 }
 
@@ -93,14 +84,11 @@ sub unmute {
 
 	my ($channel, $old_volume) = @_;
 
-	my $volume = volume($channel);
+	if ($channel =~ /vmix/) {
+		$old_volume = sprintf ("%d", $old_volume / 4);
+	}
 
-	if ($volume == 0) {
-		system "ossmix \"$channel\" +$old_volume > /dev/null"
-	}
-	else {
-		return -1; # The channel is not muted !
-	}
+	system "ossmix \"$channel\" +$old_volume > /dev/null"
 
 }
 
@@ -124,7 +112,10 @@ sub set_volume {
 
 	my ($channel, $value) = @_;
 
-	unmute($channel, 0);
+	if ($channel =~ /vmix/) {
+		$value = sprintf ("%d", $value / 4);
+	}
+
 	system("ossmix \"$channel\" $value > /dev/null");
 
 }

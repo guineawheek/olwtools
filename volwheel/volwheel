@@ -21,16 +21,26 @@ use warnings;
 use Switch;
 use if (@ARGV < 1),  Gtk2 => '-init';
 use if (@ARGV < 1), 'Gtk2::TrayIcon';
-use lib '/usr/lib/volwheel';
+use if (-d '/usr/lib/volwheel'), lib => '/usr/lib/volwheel';
+use if (-d '/usr/local/lib/volwheel'), lib => '/usr/local/lib/volwheel';
 use Alsa;
 use OSS;
 use Conf;
 use ConfDialog;
+use MiniMixer;
 
 use constant APPNAME => "VolWheel";
-use constant VERSION => "0.2.7beta2"; # 2009-01-07
+use constant VERSION => "0.2.7beta3"; # 2009-01-15
 
 # M A I N #
+
+our $prefix;
+if (-d "/usr/local/lib/volwheel") {
+	$prefix = "/usr/local";
+}
+else {
+	$prefix = "/usr";
+}
 
 our $opt = Conf->new;
     $opt->read_conf;
@@ -64,10 +74,6 @@ $trayicon->show_all;
 # the refresh loop
 my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
 
-# the mini-mixer
-my $winscale;
-my $scale;
-
 Gtk2->main;
 
 
@@ -81,9 +87,7 @@ sub volup {
 		}
 	}
 	elsif ($opt->driver eq "OSS") {
-		if ( OSS::unmute($opt->channel, $opt->before_mute) == -1 ) {
 			OSS::volume_up( $opt->channel, $opt->increment );
-		}
 	}
 }
 
@@ -94,22 +98,24 @@ sub voldown {
 		}
 	}
 	elsif ($opt->driver eq "OSS") {
-		if ( OSS::is_muted($opt->channel) == 0 ) {
-			OSS::volume_down( $opt->channel, $opt->increment );
-		}
+		OSS::volume_down( $opt->channel, $opt->increment );
 	}
 }
 
 sub toggle {
 	if ($opt->driver eq "Alsa") {
-
 		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1 ) {
 			$opt->before_mute( Alsa::mute($opt->channel) );
 		}
 	}
 	elsif ($opt->driver eq "OSS") {
-		if ( OSS::unmute($opt->channel, $opt->before_mute) == -1 ) {
-			$opt->before_mute( OSS::mute($opt->channel) );
+		my $volume = OSS::volume($opt->channel);
+		if ($volume > 0) {
+			$opt->before_mute($volume);
+			OSS::mute($opt->channel);
+		}
+		else {
+			OSS::unmute($opt->channel, $opt->before_mute);
 		}
 	}
 }
@@ -138,9 +144,6 @@ sub set_volume {
 		Alsa::set_volume($channel, $value);
 	}
 	elsif ($opt->driver eq "OSS") {
-		if ($opt->channel =~ /vmix/) {
-			$value = sprintf("%d", $value / 4);
-		}
 		OSS::set_volume($channel, $value);
 	}
 }
@@ -156,10 +159,10 @@ sub click_handler {
 	# Left click
 	if ($event->button eq 1) {
 		if ($opt->show_scale == 0) {
-			scale_window();
+			MiniMixer::show;
 		}
 		else {
-			$winscale->destroy;
+			$MiniMixer::winscale->destroy;
 		}
 	}
 	# Right click
@@ -170,6 +173,9 @@ sub click_handler {
 	elsif ($event->button eq 2) {
 		toggle();
 		update_icon();
+		if ($opt->show_scale == 1) {
+			$MiniMixer::scale{$opt->channel}->set_value( get_volume($opt->channel) );
+		}
 	}
 }
 
@@ -179,7 +185,7 @@ sub scroll_handler {
 	else { voldown(); }
 	update_icon();
 	if ($opt->show_scale == 1) {
-		$scale->set_value( get_volume($opt->channel) );
+		$MiniMixer::scale{$opt->channel}->set_value( get_volume($opt->channel) );
 	}
 }
 
@@ -203,59 +209,13 @@ sub popup {
 	$menu->popup(undef, undef, undef, undef, 0, 0);
 }
 
-sub scale_window {
-	$winscale = Gtk2::Window->new('toplevel');
-	$winscale->set_type_hint('normal');
-	$winscale->set_keep_above(1);
-	$winscale->set_skip_taskbar_hint(1);
-	$winscale->set_modal(1);
-	$winscale->set_decorated(0);
-	$winscale->set_border_width(10);
-	$winscale->set_position('mouse');
-	$winscale->signal_connect('destroy' => sub{
-			$opt->show_scale(0);
-			});
-	$winscale->signal_connect('focus-out-event' => sub{
-			$winscale->destroy;
-			});
-
-	my $vbox = Gtk2::VBox->new(0, 4);
-
-	my $btn_mixer = Gtk2::Button->new_with_label("Mixer");
-	$btn_mixer->signal_connect('clicked' => \&launch_mixer);
-	$vbox->pack_start($btn_mixer, 0, 0, 0);
-
-	my $separator = Gtk2::HSeparator->new;
-	$vbox->pack_start($separator, 0, 0, 0);
-
-	$scale = Gtk2::VScale->new_with_range(0, 100, 1);
-	$scale->set_digits(0);
-	$scale->set_value_pos('bottom');
-	$scale->set_inverted(1);
-	$scale->set_size_request(0, 120);
-	$scale->set_value( get_volume($opt->channel) );
-	$scale->signal_connect('value-changed' => sub {
-		set_volume( $scale->get_value(), $opt->channel );
-		update_icon();
-		});
-	$vbox->pack_start($scale, 0, 0, 0);
-
-	my $label = Gtk2::Label->new($opt->channel);
-	$vbox->pack_start($label, 0, 0, 0);
-
-	$winscale->add($vbox);
-	$winscale->show_all;
-	$winscale->set_focus($scale);
-	$opt->show_scale(1);
-}
-
 sub update_icon {
 	my $first_run = shift;
 	unless (defined($first_run)) { $first_run = 0; }
 	my $volume = get_volume();
 	if ($opt->icon_static == 0) {
 		my $icon_number = get_icon_number($volume);
-		$icon->set_from_file("/usr/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
+		$icon->set_from_file("$prefix/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
  		if ($first_run == 1) {
  			$eventbox->add($icon);
  		}
@@ -267,6 +227,9 @@ sub update_icon {
  		}
 	}
 	$tooltip->set_tip($trayicon, $opt->channel." : $volume%");
+	if ($opt->show_scale) {
+		MiniMixer::update;
+	}
 	return 1; # this is needed for the refresh loop
 }
 
