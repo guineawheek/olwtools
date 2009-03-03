@@ -33,11 +33,11 @@ sub show {
 	$winscale->set_decorated(0);
 	$winscale->set_border_width(10);
 	$winscale->set_position('mouse');
-	$winscale->signal_connect('destroy' => sub{
+	$winscale->signal_connect('hide' => sub{
 			$::opt->show_scale(0);
 			});
 	$winscale->signal_connect('focus-out-event' => sub{
-			$winscale->destroy;
+			$winscale->hide;
 			});
 
 	my $vbox = Gtk2::VBox->new(0, 4);

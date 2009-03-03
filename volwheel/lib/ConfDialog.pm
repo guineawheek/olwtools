@@ -249,7 +249,7 @@ sub show {
 			  $model->foreach(sub {
 					my ($model, $path, $iter) = @_;
 					my @values = $model->get($iter);
-					push @array, $values[0];
+					push @array, $values[0] unless ($values[0] eq "New Channel");
 					return 0; # required by foreach()
 					});
 			  $::opt->channel_list(@array);
