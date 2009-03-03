@@ -30,7 +30,7 @@ use ConfDialog;
 use MiniMixer;
 
 use constant APPNAME => "VolWheel";
-use constant VERSION => "0.2.7beta3"; # 2009-01-15
+use constant VERSION => "0.2.7"; # 2009-03-02
 
 # M A I N #
 
@@ -153,6 +153,11 @@ sub launch_mixer {
 	$SIG{CHLD} = "IGNORE";
 }
 
+sub launch_website {
+	exec "xdg-open http://oliwer.net" unless fork;
+	$SIG{CHLD} = "IGNORE";
+}
+
 sub click_handler {
 	my ($check, $event) = @_;
 
@@ -162,7 +167,7 @@ sub click_handler {
 			MiniMixer::show;
 		}
 		else {
-			$MiniMixer::winscale->destroy;
+			$MiniMixer::winscale->hide;
 		}
 	}
 	# Right click
@@ -173,9 +178,6 @@ sub click_handler {
 	elsif ($event->button eq 2) {
 		toggle();
 		update_icon();
-		if ($opt->show_scale == 1) {
-			$MiniMixer::scale{$opt->channel}->set_value( get_volume($opt->channel) );
-		}
 	}
 }
 
@@ -184,9 +186,6 @@ sub scroll_handler {
 	if ("up" eq $event->direction) { volup(); }
 	else { voldown(); }
 	update_icon();
-	if ($opt->show_scale == 1) {
-		$MiniMixer::scale{$opt->channel}->set_value( get_volume($opt->channel) );
-	}
 }
 
 sub popup {
@@ -254,6 +253,7 @@ sub about_dialog {
 	$about->set_version(VERSION);
 	$about->set_copyright("Copyright (c) Olivier Duclos 2008-2009");
 	$about->set_comments("Set the volume with your mousewheel");
+	$about->set_url_hook(\&launch_website);
 	$about->set_website("http://oliwer.net/");
 	$about->run;
 	$about->destroy;
@@ -280,7 +280,7 @@ quickly see or change the sound volume of your computer.
 Trayicon usage :
   * scroll up          increase volume
   * scroll down        decrease volume
-  * left click         show the mini-mixer window
+  * left click         show the MiniMixer window
   * right click        menu to access to the configuration panel
   * middle click       mute or unmute
 ";
