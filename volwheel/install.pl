@@ -22,8 +22,10 @@ my $path    = $destdir.$prefix;
 my $bindir  = "$path/bin";
 my $libdir  = "$path/lib/$package";
 my $datadir = "$path/share/$package";
+my $hicolor = "$destdir/usr/share/icons/hicolor/scalable/apps";
+my $desktop = "$destdir/usr/share/applications";
 
-my $output = install ("-v -d {$bindir,$libdir,$datadir}");
+my $output = install ("-v -d {$bindir,$libdir,$datadir,$hicolor,$desktop}");
 print $output;
 $output = install ("-v -m755 volwheel $bindir");
 print $output;
@@ -31,5 +33,9 @@ $output = install ("-v -m644 lib/* $libdir");
 print $output;
 $output = cp      ("-v -r icons $datadir/");
 print $output;
+$output = install ("-v -m644 icons/volwheel.svg $hicolor");
+print $output;
+$output = install ("-v -m644 volwheel.desktop $desktop");
 
 print "\nVolWheel has been succesfully installed.\n\n";
+
