@@ -211,24 +211,29 @@ sub popup {
 sub update_icon {
 	my $first_run = shift;
 	unless (defined($first_run)) { $first_run = 0; }
+
 	my $volume = get_volume();
-	if ($opt->icon_static == 0) {
-		my $icon_number = get_icon_number($volume);
-		$icon->set_from_file("$prefix/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
- 		if ($first_run == 1) {
+
+	if ($opt->icon_static) {
+		$icon->set_from_file($opt->icon_path);
+ 		if ($first_run) {
  			$eventbox->add($icon);
  		}
 	}
 	else {
-		$icon->set_from_file($opt->icon_path);
- 		if ($first_run == 1) {
+		my $icon_number = get_icon_number($volume);
+		$icon->set_from_file("$prefix/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
+ 		if ($first_run) {
  			$eventbox->add($icon);
  		}
 	}
+
 	$tooltip->set_tip($trayicon, $opt->channel." : $volume%");
+
 	if ($opt->show_scale) {
 		MiniMixer::update;
 	}
+
 	return 1; # this is needed for the refresh loop
 }
 

@@ -121,4 +121,23 @@ sub set_volume {
 }
 
 
+sub get_channels {
+
+	my @text = `ossmix`;
+	my @channels;
+
+	# delete the first two comments lines
+	splice (@text, 0, 2);
+
+	foreach my $line (@text) {
+		unless ($line =~ /\|/ || $line =~ /rate/) {
+			my @chan = split (' ', $line);
+			push (@channels, $chan[0]);
+		}
+	}
+
+	return @channels;
+
+}
+
 1;
