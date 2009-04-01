@@ -132,4 +132,21 @@ sub set_volume {
 
 }
 
+
+sub get_channels {
+
+	my @text = `amixer scontrols`;
+	my @channels;
+
+	foreach my $line (@text) {
+		$line =~ /^.*'(.*)',(\d)$/;
+		my $chan = $1;
+		if ($2 != 0) { $chan .= ",$2"; }
+		push (@channels,$chan);
+	}
+
+	return @channels;
+
+}
+
 1;

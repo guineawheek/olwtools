@@ -19,10 +19,10 @@ package Conf;
 use strict;
 
 sub new {
-    my $class = shift;
-    my $self  = {};
-    $self->{_driver}        = "Alsa";
-    $self->{_channel}       = "PCM";
+	my $class = shift;
+	my $self  = {};
+	$self->{_driver}        = "Alsa";
+	$self->{_channel}       = "PCM";
 	$self->{_mixer}         = "xterm -e 'alsamixer'";
 	$self->{_increment}     = 3;
 	$self->{_icon_theme}    = "simple-blue";
@@ -31,9 +31,9 @@ sub new {
 	$self->{_loop_time}     = 2;
 	$self->{_before_mute}   = 75;
 	$self->{_show_scale}    = 0;
-    $self->{_channel_list}  = [$self->{_channel},"Master","Capture"];
-    bless ($self, $class);
-    return $self;
+	$self->{_channel_list}  = [$self->{_channel},"Master","Capture"];
+	bless ($self, $class);
+	return $self;
 }
 
 
