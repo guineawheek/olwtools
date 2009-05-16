@@ -20,9 +20,7 @@ use strict;
 use warnings;
 use Switch;
 use if (@ARGV < 1),  Gtk2 => '-init';
-use if (@ARGV < 1), 'Gtk2::TrayIcon';
-use if (-d '/usr/lib/volwheel'), lib => '/usr/lib/volwheel';
-use if (-d '/usr/local/lib/volwheel'), lib => '/usr/local/lib/volwheel';
+use lib '/usr/local/lib/volwheel';
 use Alsa;
 use OSS;
 use Conf;
@@ -34,13 +32,7 @@ use constant VERSION => "0.2.7"; # 2009-03-02
 
 # M A I N #
 
-our $prefix;
-if (-d "/usr/local/lib/volwheel") {
-	$prefix = "/usr/local";
-}
-else {
-	$prefix = "/usr";
-}
+our $prefix = "/usr/local";
 
 our $opt = Conf->new;
     $opt->read_conf;
@@ -60,16 +52,11 @@ if (defined(@ARGV)) {
 }
 
 # Tray icon
-my $trayicon = Gtk2::TrayIcon->new(APPNAME);
-my $icon = Gtk2::Image->new;
-my $tooltip= Gtk2::Tooltips->new;
-my $eventbox = Gtk2::EventBox->new;
-   $eventbox->signal_connect('button_release_event', \&click_handler);
-   $eventbox->signal_connect('scroll_event', \&scroll_handler);
-   $eventbox->signal_connect('enter_notify_event', \&update_icon);
-update_icon(1);
-$trayicon->add($eventbox);
-$trayicon->show_all;
+my $icon = Gtk2::StatusIcon->new;
+   $icon->signal_connect('button_release_event', \&click_handler);
+   $icon->signal_connect('popup-menu', \&popup);
+   $icon->signal_connect('scroll_event', \&scroll_handler);
+update_icon();
 
 # the refresh loop
 my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
@@ -170,10 +157,6 @@ sub click_handler {
 			$MiniMixer::winscale->hide;
 		}
 	}
-	# Right click
-	elsif ($event->button eq 3) {
-		popup();
-	}
 	# Middle click
 	elsif ($event->button eq 2) {
 		toggle();
@@ -189,6 +172,8 @@ sub scroll_handler {
 }
 
 sub popup {
+	my ($icon,$button,$activate_time,$user_data) = @_;
+
 	my $menu = Gtk2::Menu->new;
 	my $item_prefs = Gtk2::ImageMenuItem->new_from_stock('gtk-preferences');
 	my $item_about = Gtk2::ImageMenuItem->new_from_stock('gtk-about');
@@ -205,30 +190,21 @@ sub popup {
 	$menu->add($item_quit);
 
 	$menu->show_all;
-	$menu->popup(undef, undef, undef, undef, 0, 0);
+	$menu->popup(undef, undef, undef, $user_data, $button, $activate_time);
 }
 
 sub update_icon {
-	my $first_run = shift;
-	unless (defined($first_run)) { $first_run = 0; }
-
 	my $volume = get_volume();
 
 	if ($opt->icon_static) {
 		$icon->set_from_file($opt->icon_path);
- 		if ($first_run) {
- 			$eventbox->add($icon);
- 		}
 	}
 	else {
 		my $icon_number = get_icon_number($volume);
 		$icon->set_from_file("$prefix/share/volwheel/icons/".$opt->icon_theme."/$icon_number.png");
- 		if ($first_run) {
- 			$eventbox->add($icon);
- 		}
 	}
 
-	$tooltip->set_tip($trayicon, $opt->channel." : $volume%");
+	$icon->set_tooltip_text($opt->channel." : $volume%");
 
 	if ($opt->show_scale) {
 		MiniMixer::update;
@@ -256,6 +232,8 @@ sub about_dialog {
 	my $about = Gtk2::AboutDialog->new;
 	$about->set_program_name(APPNAME);
 	$about->set_version(VERSION);
+	$about->set_logo (Gtk2::Gdk::Pixbuf->new_from_file(
+		"/usr/share/icons/hicolor/scalable/apps/volwheel.svg"));
 	$about->set_copyright("Copyright (c) Olivier Duclos 2008-2009");
 	$about->set_comments("Set the volume with your mousewheel");
 	$about->set_url_hook(\&launch_website);
