@@ -24,6 +24,7 @@ sub show {
 	# Globals to this sub
 	my $filechooser = Gtk2::FileChooserButton->new("Choose a file", 'open');
 	my $combo_theme = Gtk2::ComboBox->new_text;
+	my $iconpath = $::prefix . "/share/volwheel/icons";
 
 
 	my $winconf = Gtk2::Window->new('toplevel');
@@ -136,14 +137,13 @@ sub show {
 	my $hbox6 = Gtk2::HBox->new(0, 2);
 	my $lbl_icothm= Gtk2::Label->new("Icon theme");
 	$combo_theme->append_text($::opt->icon_theme);
-	opendir(DIR, "$::prefix/share/volwheel/icons")
-		or die ("Cannot open themes directory : $::prefix/share/volwheel/icons\n");
-	my @theme_list = grep !/^\.\.?$/, readdir DIR;
+	opendir(DIR, $iconpath)
+		or die ("Cannot open themes directory : $iconpath\n");
+	my @theme_list = grep !/^\.+/, readdir DIR;
 	closedir(DIR);
-	my $theme = undef;
-	foreach $theme (@theme_list) {
-		if (($theme ne $::opt->icon_theme) and
-		 (-d "$::pefix/share/volwheel/icons/$theme")) {
+	foreach my $theme (@theme_list) {
+		if (($theme ne $::opt->icon_theme) &&
+		 (-d "$iconpath/$theme")) {
 			$combo_theme->append_text($theme);
 		}
 	}
