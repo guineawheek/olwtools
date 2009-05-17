@@ -30,6 +30,7 @@ sub new {
 	$self->{_scale}->set_value_pos('bottom');
 	$self->{_scale}->set_inverted(1);
 	$self->{_scale}->set_size_request(0,120);
+	$self->{_scale}->set_update_policy("delayed");
 	$self->{_scale}->set_value(main::get_volume($self->{_channel}));
 	$self->{_scale}->signal_connect('value-changed' => sub {
 					main::set_volume( $self->{_scale}->get_value, $self->{_channel} );

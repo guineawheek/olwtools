@@ -2,3 +2,4 @@
 + Add configurable mouse bindings
 + Optimize Alsa backend
 + use drop-down menus instead of input-text
++ add sed stuff in the installer
