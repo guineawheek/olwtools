@@ -29,7 +29,7 @@ sub new {
 	$self->{_icon_path}     = "$::prefix/share/volwheel/icons/volwheel.png";
 	$self->{_icon_static}   = 0;
 	$self->{_loop_time}     = 2;
-	$self->{_before_mute}   = 75;
+	$self->{_before_mute}   = $self->{_increment};
 	$self->{_show_scale}    = 0;
 	$self->{_channel_list}  = [$self->{_channel},"Master","Capture"];
 	bless ($self, $class);
@@ -91,12 +91,12 @@ sub write_conf {
 		or warn "Error : Cannot open/create configuration file $path/volwheel\n";
 	print CONFIG $self->{_channel}             . $/ .
 	             $self->{_mixer}               . $/ .
-				 $self->{_increment}           . $/ .
-				 $self->{_icon_theme}          . $/ .
-				 $self->{_icon_path}           . $/ .
-				 $self->{_icon_static}         . $/ .
-				 $self->{_driver}              . $/ .
-				 join(":", $self->channel_list).":$/";
+	             $self->{_increment}           . $/ .
+	             $self->{_icon_theme}          . $/ .
+	             $self->{_icon_path}           . $/ .
+	             $self->{_icon_static}         . $/ .
+	             $self->{_driver}              . $/ .
+	             join(":", $self->channel_list).":$/";
 	close CONFIG;
 
 }

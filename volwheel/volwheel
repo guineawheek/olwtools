@@ -18,7 +18,7 @@
 
 use strict;
 use warnings;
-use Switch;
+use Time::HiRes qw(gettimeofday tv_interval);
 use if (@ARGV < 1),  Gtk2 => '-init';
 use lib '/usr/local/lib/volwheel';
 use Alsa;
@@ -28,26 +28,30 @@ use ConfDialog;
 use MiniMixer;
 
 use constant APPNAME => "VolWheel";
-use constant VERSION => "0.2.7"; # 2009-03-02
+use constant VERSION => "0.2.8"; # 2010-08-01
+
+use constant INTRVAL => 0.18;    # Lower this variable if you find volwheel
+                                 # not reactive enough. This will consume
+                                 # more CPU though.
 
 # M A I N #
 
 our $prefix = "/usr/local";
+our $intrval = INTRVAL;
 
 our $opt = Conf->new;
     $opt->read_conf;
 
 if (defined(@ARGV)) {
 	# command line
-	switch ($ARGV[0]) {
-		case ["-h", "--help"]       { usage()   }
-		case ["-v", "--version"]    { version() }
-		case ["-i", "--increase"]   { volup()   }
-		case ["-d", "--decrease"]   { voldown() }
-		case ["-m", "--mute"]       { toggle()  }
-		case ["-s", "--status"]     { status()  }
-		else                        { usage()   }
-	}
+	if    ($ARGV[0] eq "-h" || $ARGV[0] eq "--help")      { usage()   }
+	elsif ($ARGV[0] eq "-v" || $ARGV[0] eq "--version")   { version() }
+	elsif ($ARGV[0] eq "-i" || $ARGV[0] eq "--increase")  { volup()   }
+	elsif ($ARGV[0] eq "-d" || $ARGV[0] eq "--decrease")  { voldown() }
+	elsif ($ARGV[0] eq "-m" || $ARGV[0] eq "--mute")      { toggle()  }
+	elsif ($ARGV[0] eq "-s" || $ARGV[0] eq "--status")    { status()  }
+	else                                                  { usage()   }
+
 	exit;
 }
 
@@ -61,6 +65,9 @@ update_icon();
 # the refresh loop
 my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
 
+my $tv = [ gettimeofday ];
+my $multiplicator = 1;
+
 Gtk2->main;
 
 
@@ -70,7 +77,7 @@ Gtk2->main;
 sub volup {
 	if ($opt->driver eq "Alsa") {
 		if ( Alsa::unmute($opt->channel, $opt->before_mute) == -1) {
-			Alsa::volume_up( $opt->channel, $opt->increment );
+			Alsa::volume_up( $opt->channel, $opt->increment * $multiplicator );
 		}
 	}
 	elsif ($opt->driver eq "OSS") {
@@ -81,7 +88,7 @@ sub volup {
 sub voldown {
 	if ($opt->driver eq "Alsa") {
 		if ( Alsa::is_muted($opt->channel) == 0 ) {
-			Alsa::volume_down( $opt->channel, $opt->increment );
+			Alsa::volume_down( $opt->channel, $opt->increment * $multiplicator );
 		}
 	}
 	elsif ($opt->driver eq "OSS") {
@@ -166,9 +173,13 @@ sub click_handler {
 
 sub scroll_handler {
 	my ($check, $event) = @_;
+	#print("interval: " . tv_interval($tv) . "\n");
+	if (tv_interval($tv) < INTRVAL) { $multiplicator++; return; }
 	if ("up" eq $event->direction) { volup(); }
 	else { voldown(); }
 	update_icon();
+	$tv = [ gettimeofday ];
+	$multiplicator = 1;
 }
 
 sub popup {
@@ -215,17 +226,15 @@ sub update_icon {
 
 sub get_icon_number {
 	my $volume = shift;
-	switch ($volume) {
-		case 0          { return 1 }
-		case [1..16]    { return 2 }
-		case [17..33]   { return 3 }
-		case [34..50]   { return 4 }
-		case [51..67]   { return 5 }
-		case [68..84]   { return 6 }
-		case [85..99]   { return 7 }
-		case 100        { return 8 }
-		else            { return 1 }
-	}
+	if    ($volume <= 0)    { return 1 }
+	elsif ($volume <= 16)   { return 2 }
+	elsif ($volume <= 33)   { return 3 }
+	elsif ($volume <= 50)   { return 4 }
+	elsif ($volume <= 67)   { return 5 }
+	elsif ($volume <= 84)   { return 6 }
+	elsif ($volume <= 99)   { return 7 }
+	elsif ($volume == 100)  { return 8 }
+	else                    { return 1 }
 }
 
 sub about_dialog {
