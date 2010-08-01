@@ -17,26 +17,31 @@ package Scale;
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use strict;
+use Time::HiRes qw(gettimeofday tv_interval);
 our @ISA = 'Gtk2::VBox';
 
 sub new {
-    my $class = shift;
-    my $self  = Gtk2::VBox->new(0,8);
-    $self->{_channel} = shift;
+	my $class = shift;
+	my $self  = Gtk2::VBox->new(0,8);
+	$self->{_channel} = shift;
 	$self->{_scale}   = Gtk2::VScale->new_with_range(0, 100, 1);
 	$self->{_label}   = Gtk2::Label->new($self->{_channel});
+	$self->{_tv}      = [ gettimeofday ];
 
 	$self->{_scale}->set_digits(0);
 	$self->{_scale}->set_value_pos('bottom');
 	$self->{_scale}->set_inverted(1);
 	$self->{_scale}->set_size_request(0,120);
-	$self->{_scale}->set_update_policy("delayed");
+	$self->{_scale}->set_update_policy("continuous");
 	$self->{_scale}->set_value(main::get_volume($self->{_channel}));
 	$self->{_scale}->signal_connect('value-changed' => sub {
+					#print("interval: " . tv_interval($self->{_tv}) . "\n");
+					if (tv_interval($self->{_tv}) < $::intrval) { return; }
 					main::set_volume( $self->{_scale}->get_value, $self->{_channel} );
 					if ($self->{_channel} eq $::opt->channel) {
 						main::update_icon();
 					}
+					$self->{_tv} = [ gettimeofday ];
 					});
 
 	$self->add($self->{_scale});
