@@ -19,7 +19,6 @@ You can track this software on http://oliwer.net/
 Requierements
  * Perl 5
  * Gtk2 perl module
- * Gtk2::TrayIcon perl module
  * alsa-utils (amixer) or OSS (ossmix)
 
 Installation
