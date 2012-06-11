@@ -42,7 +42,7 @@ our $intrval = INTRVAL;
 our $opt = Conf->new;
     $opt->read_conf;
 
-if (defined(@ARGV)) {
+if (@ARGV) {
 	# command line
 	if    ($ARGV[0] eq "-h" || $ARGV[0] eq "--help")      { usage()   }
 	elsif ($ARGV[0] eq "-v" || $ARGV[0] eq "--version")   { version() }
