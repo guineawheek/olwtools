@@ -42,6 +42,8 @@ our $intrval = INTRVAL;
 our $opt = Conf->new;
     $opt->read_conf;
 
+my $multiplicator = 1;
+
 if (@ARGV) {
 	# command line
 	if    ($ARGV[0] eq "-h" || $ARGV[0] eq "--help")      { usage()   }
@@ -66,7 +68,6 @@ update_icon();
 my $loop = Glib::Timeout->add_seconds($opt->loop_time, \&update_icon);
 
 my $tv = [ gettimeofday ];
-my $multiplicator = 1;
 
 Gtk2->main;
 
